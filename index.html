@@ -217,6 +217,14 @@
     opacity:0.45;
     letter-spacing:1px;
   }
+  #creditRow{
+    text-align:right;
+    padding:3px 4px 0 4px;
+    font-size:9px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    opacity:0.32;
+  }
   #serveTag{
     position:absolute;
     top:46px;
@@ -364,7 +372,7 @@
     <div id="startOverlay" class="overlay">
       <div class="panel">
         <h2>Rally</h2>
-        <p>21 points, win by 2, capped at 30. First serve alternates every 2 points,<br>then every point once both sides reach 20 (deuce).</p>
+        <p>21 points, win by 2, capped at 30. First serve alternates every 2 points,<br>then every point once both sides reach 20 (deuce).<br>On serve, stay between the painted service lines — too shallow or too deep is a fault. Once the serve is returned, play the full court freely.</p>
         <div class="controlsGrid">
           <div class="col left">
             <b>Left player</b>
@@ -439,9 +447,10 @@
   </div>
 
   <div id="footer">
-    <span>ground touch ends the rally — jump to smash, hold to charge for a stronger hit</span>
+    <span>ground touch ends the rally — jump to smash, hold to charge for a stronger hit — serve must land between the painted lines</span>
     <span id="modeHint">2-player · Esc to pause</span>
   </div>
+  <div id="creditRow">Created by: Rence Joseph Marquez</div>
 </div>
 
 <script>
@@ -483,6 +492,9 @@
   // 100%-charge hit launched from a back-line position lands right at the opposite
   // back line — hit it full-power from mid-court or near the net and it sails out.
   const FLOAT_BASE_SPEED = 1250; // at 28° launch angle — bumped up for a snappier overall rally pace
+  const FLOAT_ANGLE_NEAR = 24;   // launch angle for a float hit taken right up at the net
+  const FLOAT_ANGLE_FAR = 37;    // launch angle for a float hit taken from deep in the court —
+                                  // a noticeably higher, clearer arc the further back it's played from
   const SMASH_BASE_SPEED = 1900; // at 23° launch angle — big bump for a much harder, faster-hitting smash
   const SMASH_NET_SLOWDOWN = 0.55; // speed multiplier applied when smashing right on top of the net,
                                     // scaling back up to 1.0 the farther back the hit is taken —
@@ -523,11 +535,32 @@
   ];
 
   // small tuning helpers so a character's stats actually change how they play —
-  // stat 3 is neutral (matches the base-tuned physics), each point above/below nudges it
-  function statMult(stat){ return 1 + ((stat||3)-3) * 0.08; }
-  function speedMultFor(ch){ return statMult(ch && ch.stats && ch.stats.speed); }
-  function powerMultFor(ch){ return statMult(ch && ch.stats && ch.stats.power); }
-  function reachFor(ch){ const c = (ch && ch.stats && ch.stats.control) || 3; return HIT_REACH_X + (c-3)*8; }
+  // stat 3 is neutral (matches the base-tuned physics), each point above/below nudges it.
+  // A straight linear scale made the difference between a 2 and a 4 feel small, so this
+  // adds a quadratic "kicker" on top: the further a stat sits from neutral, the more extra
+  // punch each additional point adds — so a 5 (or a 1) feels genuinely distinct, not just
+  // a slightly-better (or worse) 3.
+  function statMult(stat, linear, kicker){
+    const diff = (stat||3) - 3;
+    const sign = diff > 0 ? 1 : (diff < 0 ? -1 : 0);
+    return 1 + diff*linear + sign*diff*diff*kicker;
+  }
+  // speed: a max-speed (5) character now moves/dashes ~28% faster than neutral, a
+  // min-speed (1) character ~28% slower — roughly double the old spread
+  function speedMultFor(ch){ return statMult(ch && ch.stats && ch.stats.speed, 0.10, 0.02); }
+  // power: a max-power (5) character now hits serves/clears/smashes ~36% harder than
+  // neutral, a min-power (1) character ~36% softer — the shuttle itself visibly flies
+  // faster off a high-power character's racket
+  function powerMultFor(ch){ return statMult(ch && ch.stats && ch.stats.power, 0.12, 0.03); }
+  // control: a max-control (5) character now has ~55% more effective reach than neutral,
+  // a min-control (1) character ~55% less — makes precision players noticeably more
+  // forgiving to line up shots with, and low-control ones noticeably trickier
+  function reachFor(ch){
+    const c = (ch && ch.stats && ch.stats.control) || 3;
+    const diff = c - 3;
+    const sign = diff > 0 ? 1 : (diff < 0 ? -1 : 0);
+    return HIT_REACH_X + diff*14 + sign*diff*diff*3;
+  }
 
   // ---------- scenery roster ----------
   // NOTE: each decor(ctx, w, h, horizonY) draws background scenery that sits ABOVE the
@@ -626,6 +659,36 @@
   // the edge of the play area
   const COURT_MARGIN = 30;
   const COURT_LEFT = COURT_MARGIN, COURT_RIGHT = W - COURT_MARGIN;
+
+  // ---------- service lines ----------
+  // Two hand-painted lines per side: a short one close to the net (a serve landing
+  // between the net and this line is too shallow) and a long one further back (a serve
+  // landing beyond this line, even if still inside the outer boundary, is too deep).
+  // Together they mark the legal service box each server/receiver must land the serve
+  // in, and must stand within while the serve is being struck.
+  const SERVICE_SHORT_MARGIN = 110; // distance from the net to the short service line
+  const SERVICE_LONG_MARGIN = 80;   // distance from the outer boundary to the long service line
+  const SERVICE_SHORT_X_LEFT = NET_X - SERVICE_SHORT_MARGIN;
+  const SERVICE_SHORT_X_RIGHT = NET_X + SERVICE_SHORT_MARGIN;
+  const SERVICE_LONG_X_LEFT = COURT_LEFT + SERVICE_LONG_MARGIN;
+  const SERVICE_LONG_X_RIGHT = COURT_RIGHT - SERVICE_LONG_MARGIN;
+
+  // true only for the flight of the shuttle immediately off a serve, before it has been
+  // returned — governs the stricter service-box landing rule instead of the full-court one
+  let isServeFlight = false;
+
+  function isServiceFault(x){
+    // called only once we already know x is inside the outer COURT_LEFT..COURT_RIGHT
+    // boundary, so this just distinguishes "too shallow" / "too deep" landings on the
+    // receiver's side of the net from a legally-placed serve
+    if(servingSide === 'left'){
+      if(x <= NET_X) return false; // landed on the server's own side — handled elsewhere
+      return x < SERVICE_SHORT_X_RIGHT || x > SERVICE_LONG_X_RIGHT;
+    } else {
+      if(x >= NET_X) return false;
+      return x > SERVICE_SHORT_X_LEFT || x < SERVICE_LONG_X_LEFT;
+    }
+  }
 
   function makePlayer(side, color){
     const onLeft = side === 'left';
@@ -781,6 +844,10 @@
     const aiReach = reachFor(right.character);
     const nearReach = dx <= aiReach + 40;   // loose window: start planning
     const inReach = dx <= aiReach;          // tight window: actually allowed to swing
+    // the AI should never reach across the net to hit a shuttle that's still on the
+    // opponent's side — if it hasn't crossed over, the smart move is to leave it alone
+    // and let it fall (which scores the point automatically), not chase it
+    const shuttleOnMySide = shuttle.x >= NET_X;
     const smashTop = right.y - 90;
     const smashBottom = right.y + 220;
     const canReachHeight = dy >= smashTop && dy <= smashBottom;
@@ -810,7 +877,7 @@
         ai.lastJumpAt = now;
         ai.hasJumped = true;
       }
-      if(ai.willAttempt && !ai.hasSwung && inReach && canReachHeight &&
+      if(ai.willAttempt && !ai.hasSwung && inReach && canReachHeight && shuttleOnMySide &&
          !right.charging && now - right.lastHitTime >= HIT_COOLDOWN){
         startCharge(right, now);
         const chargeDur = ai.incomingSmash ? diff.smashChargeDuration : diff.chargeDuration;
@@ -883,6 +950,10 @@
     const dy = shuttle.y;
     if(dy < smashTop || dy > smashBottom) return false; // out of reach
 
+    // a genuine return means the serve has now been put back in play, so the strict
+    // service-box landing rule no longer applies for the rest of the rally
+    isServeFlight = false;
+
     // one-touch rule: can't hit it twice in a row on the same side
     if(lastHitBy === p.side){
       shuttle.active = false;
@@ -923,7 +994,13 @@
     } else {
       shuttle.kind = 'float';
       const speed = FLOAT_BASE_SPEED * power * powerMultFor(p.character);
-      const angle = 28 * Math.PI/180; // tall arc, tuned to cross a full court at 100% charge
+      // the further back from the net the hit is taken, the higher the arc it's sent on —
+      // a clear played from the back line lifts noticeably more than one played right at the net
+      const distFromNet = Math.abs(headX - NET_X);
+      const halfCourt = (COURT_RIGHT - COURT_LEFT)/2;
+      const netDistFrac = Math.max(0, Math.min(1, distFromNet / halfCourt));
+      const angleDeg = FLOAT_ANGLE_NEAR + (FLOAT_ANGLE_FAR - FLOAT_ANGLE_NEAR) * netDistFrac;
+      const angle = angleDeg * Math.PI/180;
       shuttle.vx = dir * speed * Math.cos(angle);
       shuttle.vy = -speed * Math.sin(angle);
     }
@@ -947,6 +1024,7 @@
     shuttle.vx = dir * speed * Math.cos(angle);
     shuttle.vy = -speed * Math.sin(angle);
     shuttle.active = true;
+    isServeFlight = true;
     state = 'rally';
   }
 
@@ -974,6 +1052,7 @@
     right.charging = false;
     left.swingTimer = 0;
     right.swingTimer = 0;
+    isServeFlight = false;
     state = 'serve';
   }
 
@@ -1247,8 +1326,22 @@
     p.vx = vx;
     p.swingTimer = Math.max(0, p.swingTimer - dt);
     p.x += vx*dt;
-    if(p.x < p.minX) p.x = p.minX;
-    if(p.x > p.maxX) p.x = p.maxX;
+
+    // during a serve, both the server and the receiver must stay inside their own
+    // service box (between the short and long service lines) — the moment the serve
+    // is struck (state becomes 'rally') this extra clamp lifts and free movement returns
+    let minX = p.minX, maxX = p.maxX;
+    if(state === 'serve'){
+      if(p.side === 'left'){
+        minX = SERVICE_LONG_X_LEFT;
+        maxX = SERVICE_SHORT_X_LEFT - PLAYER_W;
+      } else {
+        minX = SERVICE_SHORT_X_RIGHT;
+        maxX = SERVICE_LONG_X_RIGHT - PLAYER_W;
+      }
+    }
+    if(p.x < minX) p.x = minX;
+    if(p.x > maxX) p.x = maxX;
 
     p.vy += PLAYER_GRAVITY*dt;
     p.y += p.vy*dt;
@@ -1288,10 +1381,16 @@
         // out of bounds: fault on whoever hit it last, point to the other side
         const faultSide = lastHitBy;
         awardPoint(faultSide === 'left' ? 'right' : 'left');
+      } else if(isServeFlight && isServiceFault(shuttle.x)){
+        // an untouched serve that lands too close to the net or past the long service
+        // line is a fault on the server, regardless of it still being inside the outer
+        // boundary — point goes to the receiver
+        awardPoint(servingSide === 'left' ? 'right' : 'left');
       } else {
         const landedLeft = shuttle.x < NET_X;
         awardPoint(landedLeft ? 'right' : 'left');
       }
+      isServeFlight = false;
     }
   }
 
@@ -1575,23 +1674,74 @@
   }
 
   function drawFansStand(c, bg, x, y, w, h){
+    // stand panel, tinted from the court's own ground color so the bleacher reads as
+    // built into this court rather than a generic gray bar dropped on top of it
     c.fillStyle = lighten(bg.ground, 0.3);
     c.fillRect(x, y, w, h);
     c.strokeStyle = bg.line;
     c.lineWidth = 2;
     c.strokeRect(x+1, y+1, w-2, h-2);
 
-    const dotR = 5, spacing = 24;
-    const rowYs = [y + h*0.34, y + h*0.7];
+    // a plain row of seat-back ticks gives the stand some structure before the crowd
+    // sits on top of it
+    c.strokeStyle = 'rgba(0,0,0,0.15)';
+    c.lineWidth = 1;
+    for(let sx = x + 6; sx < x + w - 4; sx += 10){
+      c.beginPath();
+      c.moveTo(sx, y + h*0.86);
+      c.lineTo(sx, y + h);
+      c.stroke();
+    }
+
+    // simple watching crowd — a couple of flat head-and-shoulders silhouettes per seat,
+    // staggered across two rows. Kept deliberately plain (no faces, no detail) so it
+    // reads at a glance as "people in the stand" without competing with the court itself.
+    const spacing = 22;
+    const rowYs = [y + h*0.4, y + h*0.78];
+    const tones = ['rgba(255,255,255,0.30)','rgba(255,255,255,0.20)','rgba(255,255,255,0.25)','rgba(255,255,255,0.16)'];
     rowYs.forEach(function(ry, ri){
       const offset = ri % 2 === 0 ? 0 : spacing/2;
-      c.fillStyle = 'rgba(255,255,255,0.24)';
-      for(let dx = x + 18 + offset; dx < x + w - 14; dx += spacing){
+      let i = 0;
+      for(let dx = x + 16 + offset; dx < x + w - 10; dx += spacing){
+        c.fillStyle = tones[(i + ri*2) % tones.length];
+        i++;
+        const headR = Math.max(2.4, h*0.095);
+        const bodyW = spacing*0.6, bodyH = h*0.24;
+        // head
         c.beginPath();
-        c.arc(dx, ry, dotR, 0, Math.PI*2);
+        c.arc(dx, ry - headR*1.7, headR, 0, Math.PI*2);
+        c.fill();
+        // shoulders
+        c.beginPath();
+        c.moveTo(dx - bodyW/2, ry + bodyH*0.5);
+        c.quadraticCurveTo(dx - bodyW/2, ry - headR*0.3, dx, ry - headR*0.3);
+        c.quadraticCurveTo(dx + bodyW/2, ry - headR*0.3, dx + bodyW/2, ry + bodyH*0.5);
+        c.closePath();
         c.fill();
       }
     });
+  }
+
+  // Renders a clean, perfectly straight vertical line with a soft "painted-on" look — a
+  // faint outer glow plus a crisper inner core — so the added service lines still read
+  // as distinct from the court's printed boundary without looking hand-wobbled.
+  function drawPaintedLine(c, x, yTop, yBottom, color){
+    c.save();
+    c.lineCap = 'round';
+    c.strokeStyle = color;
+    c.globalAlpha = 0.32;
+    c.lineWidth = 4.2;
+    c.beginPath();
+    c.moveTo(x, yTop);
+    c.lineTo(x, yBottom);
+    c.stroke();
+    c.globalAlpha = 0.9;
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(x, yTop);
+    c.lineTo(x, yBottom);
+    c.stroke();
+    c.restore();
   }
 
   // The court floor is a flat, straight-on rectangle — no vanishing point, no perspective
@@ -1599,8 +1749,14 @@
   function drawCourt(){
     const bg = BACKGROUNDS.find(function(b){ return b.id === selectedBackgroundId; }) || BACKGROUNDS[0];
 
-    // flat backdrop — single flat color, no sky gradient
-    ctx.fillStyle = bg.sky[0];
+    // backdrop — a soft gradient between the theme's two sky tones. The court floor
+    // below is still drawn as a flat, uniform rectangle (no perspective); this gradient
+    // only lives in the space above it, giving that freed-up area some atmosphere now
+    // that the plain dotted band is gone.
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, FANS_BOTTOM + 60);
+    skyGrad.addColorStop(0, bg.sky[0]);
+    skyGrad.addColorStop(1, bg.sky[1] || bg.sky[0]);
+    ctx.fillStyle = skyGrad;
     ctx.fillRect(0,0,W,H);
 
     // themed flourish in the strip of background freed up above the fan stand
@@ -1622,6 +1778,14 @@
     ctx.strokeStyle = bg.line;
     ctx.lineWidth = 2;
     ctx.strokeRect(COURT_LEFT, COURT_TOP, COURT_RIGHT-COURT_LEFT, GROUND_Y-COURT_TOP);
+
+    // service lines — drawn with a rough, hand-painted stroke (deliberately looser than
+    // the crisp printed boundary above) so they read as an added marking rather than
+    // part of the court's original print
+    const paintColor = 'rgba(255,236,180,0.85)';
+    [SERVICE_SHORT_X_LEFT, SERVICE_SHORT_X_RIGHT, SERVICE_LONG_X_LEFT, SERVICE_LONG_X_RIGHT].forEach(function(lx){
+      drawPaintedLine(ctx, lx, COURT_TOP+2, GROUND_Y-2, paintColor);
+    });
 
     // net — perfectly vertical, centered
     ctx.fillStyle = '#d8d2c2';

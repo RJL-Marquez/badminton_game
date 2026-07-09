@@ -4,432 +4,1678 @@
 <meta charset="UTF-8">
 <title>Rally — 2D Badminton</title>
 <style>
-  :root{
-    --court-dark:#0b3d2e;
-    --court-line:#e9e4d8;
-    --net-color:#2b2b2b;
-    --ink:#161512;
-    --paper:#f2ede1;
-    --accent:#e0562d;
-    --accent2:#ffce54;
-    --left-color:#3f7cff;
-    --right-color:#ff4f6b;
-    --shuttle:#f2ede1;
-    --panel-bg:rgba(10,25,20,0.72);
-    --panel-border:rgba(242,237,225,0.14);
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --court-dark: #0f1523;
+    --court-line: rgba(255, 255, 255, 0.7);
+    --net-color: #e5e7eb;
+    --ink: #060913;
+    --paper: #f8fafc;
+    --accent: #ff4f6b;
+    --accent2: #ffb800;
+    --left-color: #3b82f6;
+    --right-color: #ec4899;
+    --shuttle: #f8fafc;
+    --panel-bg: rgba(10, 15, 30, 0.75);
+    --panel-border: rgba(255, 255, 255, 0.1);
+    --glow-color: rgba(255, 79, 107, 0.35);
   }
-  :root[data-theme="neon"]{
-    --ink:#0d0221;
-    --paper:#f5f0ff;
-    --accent:#ff2fd0;
-    --accent2:#00e5ff;
-    --left-color:#00e5ff;
-    --right-color:#ff2fd0;
-    --court-dark:#170524;
-    --panel-bg:rgba(20,5,35,0.78);
-    --panel-border:rgba(255,47,208,0.25);
+  :root[data-theme="neon"] {
+    --ink: #07020d;
+    --paper: #f5f3ff;
+    --accent: #d946ef;
+    --accent2: #06b6d4;
+    --left-color: #06b6d4;
+    --right-color: #d946ef;
+    --court-dark: #120324;
+    --panel-bg: rgba(18, 5, 32, 0.82);
+    --panel-border: rgba(217, 70, 239, 0.25);
+    --glow-color: rgba(217, 70, 239, 0.4);
   }
-  :root[data-theme="sunset"]{
-    --ink:#2b1810;
-    --paper:#fff3e0;
-    --accent:#ff8a3d;
-    --accent2:#ffd166;
-    --left-color:#4fa3ff;
-    --right-color:#ff5f6d;
-    --court-dark:#3d1f0f;
-    --panel-bg:rgba(45,20,10,0.75);
-    --panel-border:rgba(255,138,61,0.25);
+  :root[data-theme="sunset"] {
+    --ink: #1c0a00;
+    --paper: #fffaf0;
+    --accent: #f97316;
+    --accent2: #facc15;
+    --left-color: #38bdf8;
+    --right-color: #fb7185;
+    --court-dark: #311100;
+    --panel-bg: rgba(45, 15, 0, 0.8);
+    --panel-border: rgba(249, 115, 22, 0.25);
+    --glow-color: rgba(249, 115, 22, 0.4);
   }
-  *{box-sizing:border-box;}
-  html,body{
-    margin:0;
-    height:100%;
-    background:
-      radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.05), transparent 60%),
-      radial-gradient(ellipse at 80% 80%, rgba(255,255,255,0.04), transparent 55%),
+
+  * { box-sizing: border-box; }
+  
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: 
+      radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
+      radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.08) 0%, transparent 45%),
       var(--ink);
-    font-family: "Courier New", ui-monospace, monospace;
-    color:var(--paper);
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    overflow:hidden;
-    transition: background 0.4s ease;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    color: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
-  #wrap{
-    position:relative;
-    width:1300px;
-    max-width:100vw;
+
+  #wrap {
+    position: relative;
+    width: 1300px;
+    max-width: 100vw;
+    animation: fadeInWrap 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
-  #titleRow{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    padding:6px 4px 10px 4px;
-    letter-spacing:2px;
+  @keyframes fadeInWrap {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
-  #titleRow h1{
-    font-size:17px;
-    margin:0;
-    display:flex;
-    align-items:center;
-    gap:8px;
-    text-transform:uppercase;
-    color:var(--paper);
-    opacity:0.9;
-    letter-spacing:4px;
-    text-shadow:0 0 14px rgba(255,255,255,0.15);
+
+  #titleRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 8px 16px 8px;
   }
-  #titleRow .sub{
-    font-size:10px;
-    opacity:0.5;
+  #titleRow h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-transform: uppercase;
+    color: var(--paper);
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
   }
-  .logoMark{ flex:0 0 auto; display:block; filter:drop-shadow(0 0 6px rgba(255,255,255,0.15)); }
-  #canvasBox{
-    position:relative;
-    width:1300px;
-    height:560px;
-    max-width:100%;
-    border:2px solid var(--paper);
-    border-radius:6px;
-    background:var(--court-dark);
-    box-shadow:0 18px 50px rgba(0,0,0,0.55), inset 0 0 60px rgba(0,0,0,0.25);
-    overflow:hidden;
+  #titleRow h1 span.accentText {
+    color: var(--accent);
+    text-shadow: 0 0 15px var(--glow-color);
+  }
+  #titleRow .sub {
+    font-size: 11px;
+    opacity: 0.6;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: rgba(255, 255, 255, 0.04);
+    padding: 4px 10px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .logoMark {
+    flex: 0 0 auto;
+    display: block;
+    filter: drop-shadow(0 0 8px var(--glow-color));
+    animation: logoFloat 4s ease-in-out infinite alternate;
+  }
+  @keyframes logoFloat {
+    0% { transform: translateY(0) rotate(0deg); }
+    100% { transform: translateY(-3px) rotate(4deg); }
+  }
+
+  #canvasBox {
+    position: relative;
+    width: 1300px;
+    height: 730px;
+    max-width: 100%;
+    border: 6px solid rgba(255, 255, 255, 0.16);
+    border-radius: 20px;
+    background: var(--court-dark);
+    box-shadow: 
+      0 35px 85px rgba(0, 0, 0, 0.85), 
+      inset 0 0 100px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
     transform: translate(0,0);
+    transition: border-color 0.4s ease, box-shadow 0.4s ease;
   }
-  #canvasBox.shake{ animation: shakeAnim 0.28s ease-out; }
-  @keyframes shakeAnim{
-    0%{ transform:translate(0,0); }
-    15%{ transform:translate(-7px,4px) rotate(-0.3deg); }
-    30%{ transform:translate(6px,-5px) rotate(0.3deg); }
-    45%{ transform:translate(-5px,3px) rotate(-0.2deg); }
-    60%{ transform:translate(4px,-3px) rotate(0.2deg); }
-    75%{ transform:translate(-2px,2px); }
-    100%{ transform:translate(0,0); }
+  #canvasBox:hover {
+    border-color: rgba(255, 255, 255, 0.24);
+    box-shadow: 
+      0 40px 95px rgba(0, 0, 0, 0.92), 
+      0 0 25px rgba(255, 255, 255, 0.05);
   }
-  canvas{
-    display:block;
-    width:100%;
-    height:100%;
+  #canvasBox.shake { animation: shakeAnim 0.28s cubic-bezier(.36,.07,.19,.97) both; }
+  @keyframes shakeAnim {
+    10%, 90% { transform: translate3d(-1px, 1px, 0); }
+    20%, 80% { transform: translate3d(2px, -1px, 0); }
+    30%, 50%, 70% { transform: translate3d(-4px, 3px, 0); }
+    40%, 60% { transform: translate3d(4px, -2px, 0); }
   }
-  .overlay{
-    position:absolute;
-    inset:0;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    background:
-      radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.06), transparent 60%),
-      rgba(5,12,10,0.72);
-    text-align:center;
-    padding:20px;
-    backdrop-filter:blur(2px);
-  }
-  .hidden{ display:none !important; }
-  .panel{
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:14px;
-    background:var(--panel-bg);
-    border:1px solid var(--panel-border);
-    border-radius:16px;
-    padding:26px 34px;
-    box-shadow:0 20px 60px rgba(0,0,0,0.4);
-    max-width:900px;
-    max-height:92%;
-    overflow-y:auto;
-  }
-  .overlay h2{
-    font-size:26px;
-    letter-spacing:3px;
-    text-transform:uppercase;
-    margin:0;
-    color:var(--paper);
-    text-shadow:0 0 18px rgba(255,255,255,0.12);
-  }
-  .overlay p, .overlay .controlsGrid{
-    font-size:12px;
-    color:var(--paper);
-    opacity:0.8;
-    margin:0;
-    line-height:1.6;
-  }
-  .subtle{ opacity:0.6 !important; font-size:11px !important; }
-  .controlsGrid{
-    display:flex;
-    gap:36px;
-  }
-  .controlsGrid .col{ text-align:left; }
-  .controlsGrid .col b{
-    display:block;
-    margin-bottom:4px;
-    letter-spacing:1px;
-  }
-  .controlsGrid .col.left b{ color:var(--left-color); }
-  .controlsGrid .col.right b{ color:var(--right-color); }
-  button.gameBtn{
-    font-family:inherit;
-    background:var(--accent);
-    color:var(--ink);
-    border:none;
-    border-radius:8px;
-    padding:10px 22px;
-    font-size:13px;
-    letter-spacing:2px;
-    text-transform:uppercase;
-    cursor:pointer;
-    margin-top:6px;
-    box-shadow:0 4px 14px rgba(0,0,0,0.35);
-    transition:transform 0.12s ease, filter 0.12s ease;
-  }
-  button.gameBtn:hover{ filter:brightness(1.1); transform:translateY(-2px); }
-  button.gameBtn:active{ transform:translateY(0); }
-  button.gameBtn.secondary{
-    background:transparent;
-    color:var(--paper);
-    border:1px solid var(--panel-border);
-    box-shadow:none;
-  }
-  #modeSelect, #difficultySelect{
-    display:flex;
-    gap:12px;
-    align-items:center;
-  }
-  .diffBtn[data-diff="easy"]{ background:#5fae6e; }
-  .diffBtn[data-diff="medium"]{ background:var(--accent); }
-  .diffBtn[data-diff="hard"]{ background:#c0392b; }
-  #backToMode{
-    font-size:10px;
-    opacity:0.6;
-    letter-spacing:1px;
-    cursor:pointer;
-    margin-left:6px;
-    text-transform:uppercase;
-  }
-  #backToMode:hover{ opacity:1; }
-  #footer{
-    display:flex;
-    justify-content:space-between;
-    padding:8px 4px 0 4px;
-    font-size:10px;
-    opacity:0.45;
-    letter-spacing:1px;
-  }
-  #creditRow{
-    text-align:right;
-    padding:3px 4px 0 4px;
-    font-size:9px;
-    letter-spacing:1px;
-    text-transform:uppercase;
-    opacity:0.32;
-  }
-  #serveTag{
-    position:absolute;
-    top:46px;
-    left:50%;
-    transform:translateX(-50%);
-    font-size:11px;
-    letter-spacing:2px;
-    text-transform:uppercase;
-    color:var(--paper);
-    background:rgba(5,12,10,0.45);
-    padding:3px 10px;
-    border-radius:20px;
-    opacity:0.85;
-    pointer-events:none;
-  }
-  #themeRow{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    margin-top:2px;
-  }
-  .themeLabel{ font-size:10px; letter-spacing:2px; opacity:0.6; text-transform:uppercase; }
-  .themeSwatch{
-    width:18px; height:18px; border-radius:50%;
-    background:var(--sw);
-    border:2px solid rgba(255,255,255,0.35);
-    cursor:pointer;
-    padding:0;
-  }
-  .themeSwatch.active{ border-color:#fff; box-shadow:0 0 0 3px var(--sw); }
 
-  .backLink{
-    align-self:flex-start;
-    font-size:10px;
-    letter-spacing:1px;
-    text-transform:uppercase;
-    opacity:0.55;
-    cursor:pointer;
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
   }
-  .backLink:hover{ opacity:1; }
 
-  .cardGrid{
-    display:grid;
-    grid-template-columns:repeat(4,1fr);
-    gap:12px;
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, rgba(13, 10, 24, 0.5) 0%, rgba(5, 3, 10, 0.88) 100%);
+    text-align: center;
+    padding: 30px;
+    backdrop-filter: blur(14px);
+    z-index: 100;
+    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s;
+    opacity: 1;
   }
-  .bgGrid{ grid-template-columns:repeat(3,1fr); }
-  .charCard{
-    background:rgba(255,255,255,0.04);
-    border:2px solid transparent;
-    border-radius:10px;
-    padding:8px 6px;
-    cursor:pointer;
-    transition:border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    gap:4px;
+  .hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
   }
-  .charCard:hover{
-    border-color:var(--accent);
-    background:rgba(255,255,255,0.08);
-    transform:translateY(-3px);
+
+  .overlay:not(.hidden) .panel {
+    animation: panelEntrance 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   }
-  .charCard canvas{ display:block; }
-  .cardLabel{
-    font-size:10px;
-    letter-spacing:1px;
-    text-transform:uppercase;
-    opacity:0.85;
+  @keyframes panelEntrance {
+    from { opacity: 0; transform: scale(0.95) translateY(25px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
   }
-  .charTagline{
-    font-size:8.5px;
-    opacity:0.55;
-    font-style:italic;
-    text-align:center;
-    line-height:1.3;
-    min-height:22px;
-    padding:0 2px;
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 24px;
+    padding: 32px 42px;
+    box-shadow: 
+      0 25px 60px rgba(0, 0, 0, 0.5),
+      0 0 40px rgba(255, 79, 107, 0.04);
+    max-width: 900px;
+    width: 90%;
+    max-height: 94%;
+    overflow-y: auto;
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.1) transparent;
   }
-  .statBlock{
-    display:flex;
-    flex-direction:column;
-    gap:3px;
-    width:100%;
-    margin-top:2px;
+
+  /* Compact layout for character and court selection to prevent scrollbars */
+  #charSelectOverlay .panel, #bgSelectOverlay .panel {
+    padding: 16px 24px !important;
+    gap: 8px !important;
+    max-width: 1100px !important;
+    width: 96% !important;
+    max-height: 98% !important;
+    overflow-y: auto !important;
   }
-  .statRow{
-    display:flex;
-    align-items:center;
-    gap:5px;
+  
+  #charSelectOverlay h2, #bgSelectOverlay h2 {
+    font-size: 24px !important;
+    margin-bottom: 2px !important;
   }
-  .statRow .statTag{
-    font-size:8px;
-    letter-spacing:0.5px;
-    opacity:0.6;
-    width:26px;
-    flex:0 0 auto;
-    text-transform:uppercase;
+  
+  #charSelectOverlay p.subtle, #bgSelectOverlay p.subtle {
+    font-size: 11px !important;
+    margin-bottom: 0 !important;
   }
-  .statDots{ display:flex; gap:2px; }
-  .statDots .pip{
-    width:7px; height:7px; border-radius:50%;
-    background:rgba(255,255,255,0.14);
-    flex:0 0 auto;
+
+  .cardGrid {
+    gap: 10px !important;
+    margin-top: 4px !important;
   }
-  .statDots.speed .pip.filled{ background:#4fa3ff; }
-  .statDots.power .pip.filled{ background:#e0562d; }
-  .statDots.control .pip.filled{ background:#5fae6e; }
+
+  .charCard {
+    padding: 8px 6px !important;
+    border-radius: 12px !important;
+    gap: 4px !important;
+  }
+  
+  .charCard canvas {
+    width: 80px !important;
+    height: 85px !important;
+  }
+
+  .charCard .cardLabel {
+    font-size: 13px !important;
+    margin-top: 0 !important;
+  }
+
+  .charTagline {
+    font-size: 9.5px !important;
+    min-height: 24px !important;
+    line-height: 1.25 !important;
+  }
+
+  .statBlock {
+    padding: 4px 6px !important;
+    gap: 4px !important;
+    margin-top: 2px !important;
+  }
+  
+  .statRow {
+    gap: 4px !important;
+  }
+  
+  .statRow .statTag {
+    font-size: 8px !important;
+    width: 28px !important;
+  }
+  
+  .statDots .pip {
+    width: 6px !important;
+    height: 6px !important;
+  }
+  
+  /* Compact background map card thumbnails */
+  .bgGrid {
+    gap: 12px !important;
+  }
+  
+  .bgCard canvas {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 4 / 3 !important;
+    border-radius: 4px;
+  }
+
+  /* Split Menu Overlay Styles */
+  .menuOverlay {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    padding: 0 !important;
+    background: #060913 !important; /* Solid dark background */
+    overflow: hidden !important;
+  }
+
+  .menuLeft {
+    flex: 0 0 45%;
+    background: #090c15;
+    border-right: 1.5px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 32px;
+    justify-content: flex-start;
+    gap: 4px;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .menuRight {
+    flex: 1;
+    background: radial-gradient(circle at center, #111425 0%, #060913 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Branding */
+  .menuBrand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .inlineLogo {
+    animation: logoFloat 4s ease-in-out infinite alternate;
+  }
+  .brandText h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 1.5px;
+    line-height: 1.1;
+  }
+  .brandSub {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    opacity: 0.5;
+    text-transform: uppercase;
+  }
+  .menuIntro {
+    font-size: 11.5px;
+    opacity: 0.55;
+    margin: 8px 0 16px 0 !important;
+    line-height: 1.35;
+    transition: opacity 0.25s ease, height 0.25s ease;
+  }
+  .menuIntro.hidden {
+    display: none !important;
+  }
+
+  .menuOptionsWrapper {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    margin-top: 0px;
+    width: 100%;
+  }
+
+  /* Stylistic Text-only Menu */
+  .textMenu {
+    display: flex;
+    flex-direction: column;
+    gap: 24px !important;
+    margin-top: 5px;
+    align-items: flex-start;
+  }
+  .textMenu.hidden {
+    display: none !important;
+  }
+
+  .menuTextLink {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 8px 0 !important;
+    margin: 0 !important;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 34px !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    color: rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-align: left;
+    outline: none;
+    width: auto !important;
+  }
+
+  /* Left accent-line indicator that grows on hover */
+  .menuTextLink::before {
+    content: '';
+    display: block;
+    width: 0px;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.22s ease;
+  }
+
+  .menuTextLink:hover:not(.disabled) {
+    color: #ffffff !important;
+    transform: translateX(8px);
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.15);
+  }
+
+  /* On hover, the indicator bar grows */
+  .menuTextLink:hover:not(.disabled)::before {
+    width: 18px;
+    background: var(--accent);
+  }
+
+  /* For custom hover colors (like Easy/Medium/Hard in difficulty menu) */
+  .menuTextLink.diffBtn:hover:not(.disabled) {
+    color: var(--hover-color, #ffffff) !important;
+    text-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+  }
+  .menuTextLink.diffBtn:hover:not(.disabled)::before {
+    background: var(--hover-color, var(--accent)) !important;
+  }
+
+  .menuTextLink.disabled {
+    color: rgba(255, 255, 255, 0.15) !important;
+    cursor: not-allowed;
+  }
+  
+  .menuTextLink.disabled::before {
+    display: none;
+  }
+
+  .soonBadge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    margin-left: 10px;
+    vertical-align: middle;
+    text-transform: uppercase;
+  }
+
+  .submenuTitle {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0 0 16px 0;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.3);
+    border-bottom: 1.5px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 8px;
+    width: 100%;
+  }
+
+  /* Custom styling for Settings layout */
+  .menuSettingRow {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .menuSettingLabel {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    min-width: 130px;
+  }
+
+  .backLinkBtn {
+    font-size: 13px !important;
+    color: rgba(255, 255, 255, 0.35) !important;
+    margin-top: 16px !important;
+    letter-spacing: 1.5px !important;
+  }
+  .backLinkBtn:hover {
+    color: #ffffff !important;
+  }
+  .backLinkBtn::before {
+    display: none !important;
+  }
+
+  .inlineTextBtn {
+    font-size: 16px !important;
+    color: var(--accent) !important;
+    padding: 0 !important;
+  }
+  .inlineTextBtn:hover {
+    color: #ffffff !important;
+  }
+  .inlineTextBtn::before {
+    display: none !important;
+  }
+
+  .swatchRow {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  /* Compact Controls Help Block */
+  .compactControlsInfo {
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 10px;
+    font-size: 9.5px;
+    opacity: 0.65;
+    line-height: 1.35;
+  }
+  .infoGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .playerTitle {
+    font-weight: 700;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    margin-bottom: 1px;
+  }
+  .playerTitle.p1 { color: var(--left-color); }
+  .playerTitle.p2 { color: var(--right-color); }
+
+  /* Right Column Aesthetics */
+  .aestheticTitle {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    opacity: 0.4;
+    margin-bottom: 12px;
+  }
+  .aestheticFeature {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    opacity: 0.35;
+    margin-top: 12px;
+  }
+  #menuAestheticCanvas {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    box-shadow: 
+      0 12px 35px rgba(0,0,0,0.4),
+      inset 0 0 25px rgba(255,255,255,0.02);
+  }
+
+  .overlay h2 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--paper);
+    background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.7) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+  }
+
+  .overlay p, .overlay .controlsGrid {
+    font-size: 13.5px;
+    color: var(--paper);
+    opacity: 0.85;
+    margin: 0;
+    line-height: 1.6;
+    font-weight: 400;
+  }
+  .overlay p.subtitleText {
+    font-size: 14px;
+    max-width: 600px;
+    margin: -4px auto 8px auto;
+    opacity: 0.65;
+  }
+  .subtle { opacity: 0.6 !important; font-size: 12px !important; }
+
+  .controlsGrid {
+    display: flex;
+    gap: 40px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 16px 24px;
+    width: 100%;
+    justify-content: space-around;
+  }
+  .controlsGrid .col { text-align: left; }
+  .controlsGrid .col b {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    font-size: 12px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .controlsGrid .col.left b { color: var(--left-color); }
+  .controlsGrid .col.right b { color: var(--right-color); }
+  .controlsGrid .col div.rowItem {
+    font-size: 11.5px;
+    margin-bottom: 4px;
+    opacity: 0.8;
+  }
+  .keyCap {
+    display: inline-block;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+    color: #fff;
+    margin-right: 4px;
+  }
+
+  button.gameBtn {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent) 0%, #ff1c40 100%);
+    color: var(--ink);
+    border: none;
+    border-radius: 10px;
+    padding: 12px 28px;
+    font-size: 14px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    box-shadow: 
+      0 6px 20px rgba(255, 79, 107, 0.3),
+      inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  button.gameBtn::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -50%; width: 30%; height: 100%;
+    background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.3) 50%, rgba(255,255,255,0) 100%);
+    transform: skewX(-25deg);
+    transition: 0.75s;
+  }
+  button.gameBtn:hover::after {
+    left: 120%;
+  }
+  button.gameBtn:hover {
+    transform: translateY(-3px);
+    box-shadow: 
+      0 8px 24px rgba(255, 79, 107, 0.4),
+      0 0 12px rgba(255, 79, 107, 0.2);
+    filter: brightness(1.08);
+  }
+  button.gameBtn:active {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 79, 107, 0.25);
+  }
+  button.gameBtn.secondary {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--paper);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: none;
+  }
+  button.gameBtn.secondary:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+  }
+
+
+
+  #backToMode {
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.6;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    margin-left: 10px;
+    text-transform: uppercase;
+    transition: opacity 0.2s;
+  }
+  #backToMode:hover { opacity: 1; color: var(--accent); }
+
+  #footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 6px 0 6px;
+    font-size: 11px;
+    font-weight: 500;
+    opacity: 0.5;
+    letter-spacing: 0.8px;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  #creditRow {
+    text-align: right;
+    padding: 4px 6px 0 6px;
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: 0.35;
+    font-weight: 600;
+  }
+
+  #serveTag {
+    position: absolute;
+    top: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--paper);
+    background: rgba(7, 10, 18, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 5px 16px;
+    border-radius: 9999px;
+    opacity: 0.95;
+    pointer-events: none;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.25);
+    backdrop-filter: blur(4px);
+    transition: transform 0.2s;
+    animation: pulseServeTag 2s infinite ease-in-out;
+  }
+  @keyframes pulseServeTag {
+    0%, 100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.03); }
+  }
+
+  #themeRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 6px 14px;
+    border-radius: 9999px;
+  }
+  .themeLabel { font-size: 10.5px; font-weight: 600; letter-spacing: 1.5px; opacity: 0.6; text-transform: uppercase; }
+  .themeSwatch {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--sw);
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .themeSwatch:hover { transform: scale(1.15); }
+  .themeSwatch.active { border-color: #fff; box-shadow: 0 0 0 3px var(--sw); transform: scale(1.08); }
+
+  .resOption {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .resOption:hover { color: #fff; border-color: rgba(255, 255, 255, 0.3); }
+  .resOption.active {
+    color: #fff;
+    background: rgba(255, 79, 107, 0.18);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .backLink {
+    align-self: flex-start;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    opacity: 0.55;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    margin-bottom: 6px;
+  }
+  .backLink:hover { opacity: 1; transform: translateX(-3px); color: var(--accent); }
+
+  .cardGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    width: 100%;
+    margin-top: 8px;
+  }
+  .bgGrid { grid-template-columns: repeat(3, 1fr); }
+  
+  .charCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 2px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 16px 12px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.25, 1, 0.5, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+  }
+  .charCard::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 100%, var(--glow), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .charCard:hover {
+    border-color: var(--glow);
+    background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-6px) scale(1.015);
+    box-shadow: 
+      0 12px 30px rgba(0, 0, 0, 0.35),
+      0 0 15px rgba(255, 255, 255, 0.03);
+  }
+  .charCard:hover::before {
+    opacity: 0.15;
+  }
+  .charCard.selected {
+    border-color: var(--accent);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 
+      0 15px 35px rgba(0,0,0,0.45),
+      0 0 20px var(--glow-color);
+  }
+  .charCard.selected::before {
+    opacity: 0.28;
+  }
+  .charCard canvas { display: block; border-radius: 8px; }
+  
+  .cardLabel {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    opacity: 0.95;
+    margin-top: 2px;
+  }
+  .charTagline {
+    font-size: 10.5px;
+    opacity: 0.55;
+    font-style: italic;
+    text-align: center;
+    line-height: 1.4;
+    min-height: 38px;
+    padding: 0 4px;
+    font-weight: 500;
+  }
+
+  .statBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    margin-top: 4px;
+    background: rgba(0, 0, 0, 0.15);
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+  }
+  .statRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .statRow .statTag {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    opacity: 0.6;
+    width: 32px;
+    flex: 0 0 auto;
+    text-transform: uppercase;
+  }
+  .statDots { display: flex; gap: 3px; }
+  .statDots .pip {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    flex: 0 0 auto;
+    transition: all 0.3s;
+  }
+  .statDots.speed .pip.filled { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.5); }
+  .statDots.power .pip.filled { background: #f97316; box-shadow: 0 0 6px rgba(249, 115, 22, 0.5); }
+  .statDots.control .pip.filled { background: #10b981; box-shadow: 0 0 6px rgba(16, 185, 129, 0.5); }
+
+  /* Map Select specific thumb description labels */
+  .bgCard .cardLabel {
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .mapDesc {
+    font-size: 10.5px;
+    opacity: 0.5;
+    text-align: center;
+    line-height: 1.35;
+    margin-top: 1px;
+    padding: 0 4px;
+    min-height: 28px;
+  }
+
+  /* Cinematic VS Screen Overlay */
+  #vsOverlay {
+    background: radial-gradient(circle at center, rgba(8, 12, 24, 0.95) 0%, rgba(3, 4, 10, 0.99) 100%);
+  }
+  .vsPanel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 1000px;
+    gap: 40px;
+    animation: vsReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes vsReveal {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .vsBody {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    width: 100%;
+    gap: 20px;
+    margin-bottom: 10px;
+  }
+  .vsLeftPlayer, .vsRightPlayer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 320px;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    position: relative;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .vsLeftPlayer {
+    border-left: 4px solid var(--left-color);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 30px rgba(59, 130, 246, 0.05);
+  }
+  .vsRightPlayer {
+    border-right: 4px solid var(--right-color);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 30px rgba(236, 72, 153, 0.05);
+  }
+  .vsCanvas {
+    display: block;
+    width: 180px;
+    height: 180px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    margin-bottom: 16px;
+  }
+  .vsName {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .vsTagline {
+    font-size: 11px;
+    opacity: 0.55;
+    text-align: center;
+    margin: 6px 0 0 0;
+    font-style: italic;
+    min-height: 32px;
+  }
+  .vsCircle {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, #dc2626 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ink);
+    box-shadow: 
+      0 0 30px var(--glow-color),
+      inset 0 -2px 0 rgba(0,0,0,0.2);
+    border: 2px solid var(--paper);
+    animation: vsPulse 1.5s infinite ease-in-out;
+  }
+  @keyframes vsPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 25px var(--glow-color); }
+    50% { transform: scale(1.08); box-shadow: 0 0 45px var(--glow-color); }
+  }
+  .vsBottom {
+    width: 100%;
+    max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  #vsCourtName {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent2);
+  }
+  .loadingContainer {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 9999px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .loadingBar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(to right, var(--accent) 0%, var(--accent2) 100%);
+    border-radius: 9999px;
+    box-shadow: 0 0 10px var(--glow-color);
+  }
+  .loadingText {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    opacity: 0.5;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* Trophy SVG container */
+  .trophyBox {
+    margin-bottom: 12px;
+    filter: drop-shadow(0 0 12px rgba(255, 184, 0, 0.35));
+    animation: trophyFloat 3s infinite alternate ease-in-out;
+  }
+  @keyframes trophyFloat {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-8px); }
+  }
+
+  /* TEKKEN CHARACTER SELECT OVERLAY STYLES */
+  .tekken-panel {
+    max-width: 1000px !important;
+    width: 95% !important;
+    padding: 20px 24px !important;
+    gap: 8px !important;
+    background: linear-gradient(180deg, rgba(16, 16, 26, 0.98) 0%, rgba(8, 8, 12, 0.98) 100%) !important;
+    border: 3px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.85) !important;
+  }
+  
+  .tekken-matchup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 12px;
+    margin-bottom: 8px;
+    gap: 16px;
+  }
+  
+  .tekken-profile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 28%;
+    position: relative;
+  }
+  
+  .profile-label {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 3px 12px;
+    border-radius: 4px;
+    color: white;
+    letter-spacing: 1.5px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  
+  .p1-profile .profile-label {
+    background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.3);
+  }
+  
+  .p2-profile .profile-label {
+    background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+  }
+  
+  .profile-canvas-wrapper {
+    width: 130px;
+    height: 140px;
+    border: 3px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+    background: radial-gradient(circle at center, rgba(255,255,255,0.03), rgba(0,0,0,0.5));
+    box-shadow: inset 0 0 15px rgba(0,0,0,0.9);
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  
+  .p1-profile.active .profile-canvas-wrapper {
+    border-color: #ef4444;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4), inset 0 0 15px rgba(0,0,0,0.9);
+  }
+  
+  .p2-profile.active .profile-canvas-wrapper {
+    border-color: #3b82f6;
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.4), inset 0 0 15px rgba(0,0,0,0.9);
+  }
+  
+  .profile-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: #fff;
+    margin-top: 6px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+    text-transform: uppercase;
+    text-align: center;
+  }
+  
+  .p1-profile .profile-name {
+    color: #fca5a5;
+  }
+  
+  .p2-profile .profile-name {
+    color: #93c5fd;
+  }
+  
+  .tekken-middle-attributes {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 38%;
+    gap: 8px;
+  }
+  
+  .vs-badge {
+    font-size: 24px;
+    font-weight: 900;
+    color: #ef4444;
+    text-shadow: 0 0 15px rgba(239, 68, 68, 0.8);
+    font-style: italic;
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: 2px;
+  }
+  
+  .attribute-display {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background: rgba(0,0,0,0.55);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  
+  .attr-row-tekken {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 10px;
+  }
+  
+  .attr-label-center {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 1.5px;
+    text-align: center;
+    width: 90px;
+    text-transform: uppercase;
+  }
+  
+  .attr-pips-left {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-end;
+    width: 75px;
+  }
+  
+  .attr-pips-right {
+    display: flex;
+    gap: 4px;
+    justify-content: flex-start;
+    width: 75px;
+  }
+  
+  .attr-pip {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+  }
+  
+  /* Left filled styles (Player 1) - red/orange themed */
+  .attr-pips-left .attr-pip.filled {
+    background: #ef4444;
+    border-color: #fca5a5;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.8);
+  }
+  
+  /* Right filled styles (Player 2) - blue themed */
+  .attr-pips-right .attr-pip.filled {
+    background: #3b82f6;
+    border-color: #93c5fd;
+    box-shadow: 0 0 6px rgba(59, 130, 246, 0.8);
+  }
+  
+  .tekken-grid {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 8px;
+    width: 100%;
+    margin: 8px 0;
+  }
+  
+  .tekken-grid-box {
+    aspect-ratio: 1;
+    border: 2px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.02);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .tekken-grid-box canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .tekken-grid-box:hover {
+    border-color: #ef4444;
+    transform: scale(1.08);
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
+    z-index: 10;
+  }
+  
+  .tekken-grid-box.selected-left {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.12);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+  }
+  
+  .tekken-grid-box.selected-right {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.12);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+  }
+  
+  .tekken-grid-box.random-box {
+    background: radial-gradient(circle at center, #181824, #08080f);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 28px;
+    font-weight: 800;
+    color: rgba(255,255,255,0.25);
+    text-shadow: 0 0 10px rgba(255,255,255,0.1);
+  }
+  
+  .tekken-grid-box.random-box:hover {
+    color: #fff;
+    text-shadow: 0 0 15px rgba(255,255,255,0.5);
+  }
+  
+  .tekken-confirm-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 8px;
+  }
+  
+  .tekken-confirm-btn {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: #fff;
+    background: linear-gradient(135deg, #ef4444 0%, #991b1b 100%);
+    border: none;
+    border-radius: 6px;
+    padding: 10px 32px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+    text-transform: uppercase;
+  }
+  
+  .tekken-confirm-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(239, 68, 68, 0.45);
+    filter: brightness(1.15);
+  }
+  
+  .tekken-confirm-btn:active {
+    transform: translateY(0);
+  }
+  
+  .tekken-confirm-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+    filter: grayscale(1);
+  }
+
+  /* LOADING VS STATS */
+  .vsStats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: rgba(0,0,0,0.65);
+    padding: 12px 18px;
+    border-radius: 8px;
+    border: 2px solid rgba(255,255,255,0.1);
+    margin-top: 12px;
+    width: 200px;
+    align-self: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+  }
+  .vsStatRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+  }
+  .vsStatLabel {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 800;
+    color: rgba(255,255,255,0.8);
+    letter-spacing: 0.5px;
+  }
+  .vsStatVal {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    color: #ff3366;
+    letter-spacing: 1.5px;
+    font-size: 14px;
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
   <div id="titleRow">
     <h1>
-      <svg class="logoMark" width="24" height="24" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="12.5" cy="19" r="8.2" fill="none" stroke="#f2ede1" stroke-width="1.6"/>
-        <line x1="8.7" y1="13.4" x2="16.3" y2="24.6" stroke="#f2ede1" stroke-width="0.9" opacity="0.75"/>
-        <line x1="10.4" y1="12.2" x2="14.7" y2="25.9" stroke="#f2ede1" stroke-width="0.9" opacity="0.75"/>
-        <line x1="12.5" y1="11.6" x2="12.5" y2="26.4" stroke="#f2ede1" stroke-width="0.9" opacity="0.75"/>
-        <line x1="14.6" y1="12.2" x2="10.3" y2="25.9" stroke="#f2ede1" stroke-width="0.9" opacity="0.75"/>
-        <line x1="16.3" y1="13.4" x2="8.7" y2="24.6" stroke="#f2ede1" stroke-width="0.9" opacity="0.75"/>
-        <line x1="6.9" y1="16" x2="18.1" y2="16" stroke="#f2ede1" stroke-width="0.9" opacity="0.75"/>
-        <line x1="6.1" y1="19" x2="18.9" y2="19" stroke="#f2ede1" stroke-width="0.9" opacity="0.75"/>
-        <line x1="6.9" y1="22" x2="18.1" y2="22" stroke="#f2ede1" stroke-width="0.9" opacity="0.75"/>
+      <svg class="logoMark" width="28" height="28" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12.5" cy="19" r="8.2" fill="none" stroke="currentColor" stroke-width="2"/>
+        <line x1="8.7" y1="13.4" x2="16.3" y2="24.6" stroke="currentColor" stroke-width="1" opacity="0.8"/>
+        <line x1="10.4" y1="12.2" x2="14.7" y2="25.9" stroke="currentColor" stroke-width="1" opacity="0.8"/>
+        <line x1="12.5" y1="11.6" x2="12.5" y2="26.4" stroke="currentColor" stroke-width="1" opacity="0.8"/>
+        <line x1="14.6" y1="12.2" x2="10.3" y2="25.9" stroke="currentColor" stroke-width="1" opacity="0.8"/>
+        <line x1="16.3" y1="13.4" x2="8.7" y2="24.6" stroke="currentColor" stroke-width="1" opacity="0.8"/>
+        <line x1="6.9" y1="16" x2="18.1" y2="16" stroke="currentColor" stroke-width="1" opacity="0.8"/>
+        <line x1="6.1" y1="19" x2="18.9" y2="19" stroke="currentColor" stroke-width="1" opacity="0.8"/>
+        <line x1="6.9" y1="22" x2="18.1" y2="22" stroke="currentColor" stroke-width="1" opacity="0.8"/>
         <rect x="11.7" y="26.4" width="1.6" height="4.4" rx="0.6" fill="#c98a4b"/>
         <g>
-          <circle cx="23.5" cy="21.6" r="2.3" fill="#f2ede1"/>
-          <path d="M23.5 19.3 L20.2 9.6 L22.6 9.6 L24.4 17.8 Z" fill="#f2ede1" stroke="#c9c2ab" stroke-width="0.4"/>
-          <path d="M23.5 19.3 L22.3 9.2 L24.5 9.2 L24.9 17.6 Z" fill="#f2ede1" stroke="#c9c2ab" stroke-width="0.4"/>
-          <path d="M23.5 19.3 L25.0 9.4 L27.2 9.9 L25.2 18.0 Z" fill="#f2ede1" stroke="#c9c2ab" stroke-width="0.4"/>
-          <path d="M23.5 19.3 L26.7 10.4 L28.6 11.4 L25.6 18.6 Z" fill="#f2ede1" stroke="#c9c2ab" stroke-width="0.4"/>
+          <circle cx="23.5" cy="21.6" r="2.3" fill="currentColor"/>
+          <path d="M23.5 19.3 L20.2 9.6 L22.6 9.6 L24.4 17.8 Z" fill="currentColor" stroke="rgba(0,0,0,0.2)" stroke-width="0.5"/>
+          <path d="M23.5 19.3 L22.3 9.2 L24.5 9.2 L24.9 17.6 Z" fill="currentColor" stroke="rgba(0,0,0,0.2)" stroke-width="0.5"/>
+          <path d="M23.5 19.3 L25.0 9.4 L27.2 9.9 L25.2 18.0 Z" fill="currentColor" stroke="rgba(0,0,0,0.2)" stroke-width="0.5"/>
+          <path d="M23.5 19.3 L26.7 10.4 L28.6 11.4 L25.6 18.6 Z" fill="currentColor" stroke="rgba(0,0,0,0.2)" stroke-width="0.5"/>
           <circle cx="23.5" cy="21.9" r="1.5" fill="#c0392b"/>
         </g>
       </svg>
-      Rally
+      RJ <span class="accentText" style="color: #ef4444; text-shadow: 0 0 15px rgba(239, 68, 68, 0.65);">45</span>
     </h1>
-    <div class="sub">local 2-player badminton</div>
+    <div class="sub">CREATED BY: RENCE JOSEPH MARQUEZ</div>
   </div>
 
   <div id="canvasBox">
-    <canvas id="game" width="1300" height="560"></canvas>
+    <canvas id="game" width="1300" height="730"></canvas>
     <div id="serveTag" class="hidden"></div>
 
-    <div id="startOverlay" class="overlay">
-      <div class="panel">
-        <h2>Rally</h2>
-        <p>21 points, win by 2, capped at 30. First serve alternates every 2 points,<br>then every point once both sides reach 20 (deuce).<br>On serve, stay between the painted service lines — too shallow or too deep is a fault. Once the serve is returned, play the full court freely.</p>
-        <div class="controlsGrid">
-          <div class="col left">
-            <b>Left player</b>
-            A / D — move<br>
-            W — jump<br>
-            double-tap A/D — dash<br>
-            hold Space — charge · release — hit / serve
-          </div>
-          <div class="col right">
-            <b>Right player</b>
-            ← / → — move<br>
-            ↑ — jump<br>
-            double-tap ←/→ — dash<br>
-            hold Enter — charge · release — hit / serve
+    <div id="startOverlay" class="overlay menuOverlay">
+      <!-- Left Column (Navigation Menu) -->
+      <div class="menuLeft">
+        <div class="menuBrand" style="display: block; margin-bottom: 2px; width: 100%;">
+          <div class="brandText" style="width: 100%;">
+            <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 54px; font-weight: 800; margin: 0; letter-spacing: 2px; line-height: 1.0; background: linear-gradient(135deg, #ffffff 40%, var(--accent) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 35px rgba(255, 79, 107, 0.22); text-transform: uppercase;">GOODMINTON</h2>
+            <div class="brandSub" style="font-family: 'Space Grotesk', sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 2px; opacity: 0.75; text-transform: uppercase; margin-top: 10px; color: var(--accent2);">A Badminton Simulator</div>
           </div>
         </div>
-        <div id="modeSelect">
-          <button class="gameBtn" id="btn2p">2 Player</button>
-          <button class="gameBtn" id="btnAI">vs AI</button>
+
+        <p id="menuIntro" class="menuIntro hidden" style="display: none !important; margin: 0; height: 0; padding: 0; overflow: hidden;"></p>
+
+        <div class="menuOptionsWrapper">
+          <!-- Container 1: Main Options -->
+          <div id="mainMenuOptions" class="textMenu">
+            <button class="menuTextLink" id="btnAI">PLAY VS AI</button>
+            <button class="menuTextLink" id="btn2p">LOCAL MULTIPLAYER</button>
+            <button class="menuTextLink disabled" disabled>ONLINE MULTIPLAYER <span class="soonBadge">SOON</span></button>
+            <button class="menuTextLink" id="btnOptions">SETTINGS</button>
+          </div>
+
+          <!-- Container 2: Difficulty Selection (Initially Hidden) -->
+          <div id="difficultyMenuOptions" class="textMenu hidden">
+            <h3 class="submenuTitle" style="margin-bottom: 12px;">Select AI Difficulty</h3>
+            <button class="menuTextLink diffBtn" data-diff="easy" style="--hover-color: #10b981;">EASY</button>
+            <button class="menuTextLink diffBtn" data-diff="medium" style="--hover-color: var(--accent2);">MEDIUM</button>
+            <button class="menuTextLink diffBtn" data-diff="hard" style="--hover-color: #ef4444;">HARD</button>
+            <button class="menuTextLink backLinkBtn" id="btnDiffBack">← BACK TO MAIN MENU</button>
+          </div>
+
+          <!-- Container 3: Options Selection (Initially Hidden) -->
+          <div id="optionsMenuOptions" class="textMenu hidden">
+            <h3 class="submenuTitle" style="margin-bottom: 12px;">Settings</h3>
+            
+            <div class="menuSettingRow">
+              <div class="menuSettingLabel">Arena Theme</div>
+              <div class="swatchRow">
+                <button class="themeSwatch" data-theme="classic" style="--sw:#ff4f6b" title="Classic Gym"></button>
+                <button class="themeSwatch" data-theme="neon" style="--sw:#d946ef" title="Neon Arena"></button>
+                <button class="themeSwatch" data-theme="sunset" style="--sw:#f97316" title="Sunset Park"></button>
+              </div>
+            </div>
+
+            <div class="menuSettingRow">
+              <div class="menuSettingLabel">Screen Mode</div>
+              <button class="menuTextLink inlineTextBtn" id="btnFullscreen">FULLSCREEN MODE</button>
+            </div>
+
+            <div class="menuSettingRow">
+              <div class="menuSettingLabel">Resolution</div>
+              <div class="swatchRow">
+                <button class="resOption active" data-res="auto" title="Fit current window">AUTO</button>
+                <button class="resOption" data-res="1366x768" title="1366 × 768">1366×768</button>
+                <button class="resOption" data-res="1920x1080" title="1920 × 1080">1920×1080</button>
+              </div>
+            </div>
+
+            <button class="menuTextLink backLinkBtn" id="btnOptionsBack">← BACK TO MAIN MENU</button>
+          </div>
         </div>
-        <div id="difficultySelect" class="hidden">
-          <button class="gameBtn diffBtn" data-diff="easy">Easy</button>
-          <button class="gameBtn diffBtn" data-diff="medium">Medium</button>
-          <button class="gameBtn diffBtn" data-diff="hard">Hard</button>
-          <div id="backToMode">← back</div>
+        
+        <!-- Controls Helper Info -->
+        <div class="compactControlsInfo">
+          <div class="infoGroup">
+            <span class="playerTitle p1">P1 CONTROLS</span>
+            <span>A/D: Move • W: Jump/Smash</span>
+            <span>Space: Hold to Charge Hit</span>
+          </div>
+          <div class="infoGroup" style="text-align: right;">
+            <span class="playerTitle p2">P2 CONTROLS</span>
+            <span>←/→: Move • ↑: Jump/Smash</span>
+            <span>Enter: Hold to Charge Hit</span>
+          </div>
         </div>
-        <div id="themeRow">
-          <span class="themeLabel">Theme</span>
-          <button class="themeSwatch" data-theme="classic" style="--sw:#e0562d"></button>
-          <button class="themeSwatch" data-theme="neon" style="--sw:#ff2fd0"></button>
-          <button class="themeSwatch" data-theme="sunset" style="--sw:#ff8a3d"></button>
-        </div>
+      </div>
+
+      <!-- Right Column (Aesthetics / Graphic) -->
+      <div class="menuRight">
+        <div class="aestheticTitle">GOODMINTON STADIUM</div>
+        <canvas id="menuAestheticCanvas" width="480" height="340"></canvas>
+        <div class="aestheticFeature">ACCURATE PHYSICS • 8 CHARACTERS • 6 COURTS</div>
       </div>
     </div>
 
     <div id="charSelectOverlay" class="overlay hidden">
-      <div class="panel">
-        <div class="backLink" id="charBackLink">← Back</div>
-        <h2 id="charSelectTitle">Choose Your Character</h2>
-        <p class="subtle">Pick a player to take the court</p>
-        <div class="cardGrid" id="charGrid"></div>
+      <div class="panel tekken-panel">
+        <div class="backLink" id="charBackLink">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+          Back
+        </div>
+        
+        <!-- TEKKEN PORTRAITS TOP BAR -->
+        <div class="tekken-matchup-header">
+          <!-- Player 1 Profile (Left) -->
+          <div class="tekken-profile p1-profile" id="p1Profile">
+            <div class="profile-label" id="p1StateLabel">P1 SELECTING</div>
+            <div class="profile-canvas-wrapper">
+              <canvas id="p1PreviewCanvas" width="160" height="180"></canvas>
+            </div>
+            <div class="profile-name" id="p1PreviewName">MAYA</div>
+          </div>
+          
+          <!-- Middle Attributes Display -->
+          <div class="tekken-middle-attributes">
+            <div class="vs-badge">VS</div>
+            <div class="attribute-display">
+              <!-- SPEED ROW -->
+              <div class="attr-row-tekken">
+                <div class="attr-pips-left" id="p1SpeedPips">
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                </div>
+                <span class="attr-label-center">SPEED</span>
+                <div class="attr-pips-right" id="p2SpeedPips">
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                </div>
+              </div>
+              
+              <!-- POWER ROW -->
+              <div class="attr-row-tekken">
+                <div class="attr-pips-left" id="p1PowerPips">
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                </div>
+                <span class="attr-label-center">POWER</span>
+                <div class="attr-pips-right" id="p2PowerPips">
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                </div>
+              </div>
+              
+              <!-- CONTROL ROW -->
+              <div class="attr-row-tekken">
+                <div class="attr-pips-left" id="p1ControlPips">
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                </div>
+                <span class="attr-label-center">CONTROL</span>
+                <div class="attr-pips-right" id="p2ControlPips">
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                  <div class="attr-pip"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Player 2 Profile (Right) -->
+          <div class="tekken-profile p2-profile" id="p2Profile">
+            <div class="profile-label" id="p2StateLabel">AI OPPONENT</div>
+            <div class="profile-canvas-wrapper">
+              <canvas id="p2PreviewCanvas" width="160" height="180"></canvas>
+            </div>
+            <div class="profile-name" id="p2PreviewName">JORDAN</div>
+          </div>
+        </div>
+
+        <!-- TEKKEN GRID IN THE MIDDLE -->
+        <h2 id="charSelectTitle" style="text-align: center; font-size: 15px !important; letter-spacing: 2px; text-transform: uppercase; margin-top: 4px !important; margin-bottom: 2px !important;">CHOOSE THE FIGHTER</h2>
+        <div class="tekken-grid" id="charGrid"></div>
+
+        <!-- CONFIRMATION BUTTON AT THE BOTTOM -->
+        <div class="tekken-confirm-container">
+          <button id="tekkenConfirmBtn" class="tekken-confirm-btn">CONFIRM SELECTION</button>
+        </div>
       </div>
     </div>
 
     <div id="bgSelectOverlay" class="overlay hidden">
       <div class="panel">
-        <div class="backLink" id="bgBackLink">← Back</div>
+        <div class="backLink" id="bgBackLink">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+          Back
+        </div>
         <h2>Choose the Court</h2>
-        <p class="subtle">Set the scene for the match</p>
+        <p class="subtle" style="margin-top:-6px;">Set the scene for the match</p>
         <div class="cardGrid bgGrid" id="bgGrid"></div>
+      </div>
+    </div>
+
+    <div id="vsOverlay" class="overlay hidden">
+      <div class="vsPanel">
+        <div class="vsBody">
+          <div class="vsLeftPlayer">
+            <canvas class="vsCanvas" id="vsLeftCanvas" width="180" height="180"></canvas>
+            <h3 class="vsName" id="vsLeftName">PLAYER 1</h3>
+            <p class="vsTagline" id="vsLeftTagline">The Speedy Veteran</p>
+            <div class="vsStats" id="vsLeftStats"></div>
+          </div>
+          <div class="vsCircle">VS</div>
+          <div class="vsRightPlayer">
+            <canvas class="vsCanvas" id="vsRightCanvas" width="180" height="180"></canvas>
+            <h3 class="vsName" id="vsRightName">PLAYER 2</h3>
+            <p class="vsTagline" id="vsRightTagline">The Hard Hitter</p>
+            <div class="vsStats" id="vsRightStats"></div>
+          </div>
+        </div>
+        <div class="vsBottom">
+          <div id="vsCourtName">CLASSIC COURT</div>
+          <div class="loadingContainer">
+            <div class="loadingBar" id="vsLoadingBar"></div>
+          </div>
+          <div class="loadingText" id="vsLoadingText">PREPARING COURT...</div>
+        </div>
       </div>
     </div>
 
     <div id="gameOverOverlay" class="overlay hidden">
       <div class="panel">
-        <h2 id="winnerText">🏆 Winner</h2>
-        <p id="finalScoreText"></p>
+        <div class="trophyBox">
+          <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#ffb800" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+            <path d="M4 22h16" />
+            <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" />
+            <path d="M12 2a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4 4 4 0 0 1-4-4V6a4 4 0 0 1 4-4z" />
+          </svg>
+        </div>
+        <h2 id="winnerText" style="font-size: 28px;">🏆 Winner</h2>
+        <p id="finalScoreText" style="font-size: 15px; font-weight: 600; opacity: 0.85; margin: 4px 0 14px 0;"></p>
         <button class="gameBtn" id="restartBtn">Play Again</button>
         <button class="gameBtn secondary" id="gameOverMenuBtn">Return to Menu</button>
       </div>
@@ -437,10 +1683,10 @@
 
     <div id="pauseOverlay" class="overlay hidden">
       <div class="panel">
-        <h2>⏸ Paused</h2>
-        <p class="subtle">Press Esc to resume</p>
+        <h2>⏸ Game Paused</h2>
+        <p class="subtle" style="margin-top:-6px;">Press Esc to resume</p>
         <button class="gameBtn" id="resumeBtn">Resume</button>
-        <button class="gameBtn secondary" id="pauseRestartBtn">↻ Restart</button>
+        <button class="gameBtn secondary" id="pauseRestartBtn">↻ Restart Match</button>
         <button class="gameBtn secondary" id="mainMenuBtn">⌂ Main Menu</button>
       </div>
     </div>
@@ -459,15 +1705,25 @@
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
 
-  const GROUND_Y = 480;
+  const GROUND_Y = 620;
   const SCORE_STRIP_H = 54;      // fixed header strip height, independent of court size
-  const FANS_TOP = 98;           // fan stand band pulled down, opening a decor band under the score strip
-  const FANS_BOTTOM = 160;       // shorter band — more breathing room before the court's grid lines start
-  const COURT_TOP = 228;         // shorter court — starts lower, same ground line as before
+  const FANS_TOP = 190;           // fan stand band pulled down, opening a decor band under the score strip
+  const FANS_BOTTOM = 280;       // shorter band — more breathing room before the court's grid lines start
+  const COURT_TOP = 360;         // shorter court — starts lower, same ground line as before
   const NET_X = W/2;
   const NET_WIDTH = 8;
   const NET_HEIGHT = 80;
   const NET_TOP = GROUND_Y - NET_HEIGHT;
+
+  // Realistic net collision (see updateShuttle): a shuttle that clips the thin TOP tape
+  // plays a soft, real-feeling "net cord" shot that barely dribbles over — anywhere lower
+  // (the body of the net) is a clean fault instead. NET_TAPE_BAND is how many px below
+  // NET_TOP still count as the tape rather than the net's body.
+  const NET_TAPE_BAND = 14;          // px of net height (out of NET_HEIGHT) treated as the tape
+  const NET_CORD_CREEP_SPEED = 70;   // px/s the shuttle keeps moving forward after a tape clip —
+                                      // small and fixed regardless of how hard it was hit, so
+                                      // every cord shot "loses most of its momentum" the same way
+  const NET_CORD_BOUNCE_VY = -90;    // small upward kick off the tape before gravity takes back over
 
   const PLAYER_W = 40, PLAYER_H = 70;
   const MOVE_SPEED = 300;
@@ -476,10 +1732,21 @@
   const DASH_COOLDOWN = 0.4;
   const DASH_WINDOW = 0.28; // max ms between taps to count as double-tap
   const AI_DASH_TRIGGER_DIST = 160; // hard AI dashes when it needs to cover more ground than this to reach the shuttle
+  const DASH_DIST_LINEAR = 0.14;   // dash-distance scaling per Speed point above/below neutral (3★) —
+  const DASH_DIST_KICKER = 0.05;   // reused via the same statMult() helper as every other stat
+                                    // multiplier, just with its own coefficients tuned to spread the
+                                    // 5 Speed tiers into a clearly distinct short → long progression:
+                                    // 1★ ≈ 0.52x (shortest), 2★ ≈ 0.81x, 3★ = 1.0x (moderate),
+                                    // 4★ ≈ 1.19x (long), 5★ ≈ 1.48x (longest) — every Speed rating
+                                    // can dash now, only how FAR it goes differs
   const PLAYER_GRAVITY = 1500;
   const JUMP_VELOCITY = -560;
 
   const SHUTTLE_RADIUS = 5.5;
+  // below this speed² (px/s, squared to skip a sqrt), the shuttle's visual rotation just
+  // holds at whatever it last was rather than recomputing from velocity — avoids a jittery/
+  // undefined spin while the shuttle is essentially stationary (held on serve, etc.)
+  const SHUTTLE_ROTATION_MIN_SPEED_SQ = 25;
   const SHUTTLE_GRAVITY = 700;
   const SHUTTLE_TERMINAL_VY = 190; // capped fall speed once momentum is spent -> the "floaty" tail
   const HORIZONTAL_DRAG = 1.1;     // per-second exponential decay on forward speed
@@ -491,11 +1758,14 @@
   // Speeds below were derived by simulating this exact drag/gravity model so that a
   // 100%-charge hit launched from a back-line position lands right at the opposite
   // back line — hit it full-power from mid-court or near the net and it sails out.
-  const FLOAT_BASE_SPEED = 1250; // at 28° launch angle — bumped up for a snappier overall rally pace
+  // (All three base speeds got an across-the-board ~15% bump for a faster overall pace —
+  // the per-character power multiplier below is applied on top, unchanged, so higher-power
+  // characters still hit proportionally harder than lower-power ones.)
+  const FLOAT_BASE_SPEED = 1440; // at 28° launch angle — bumped up for a snappier overall rally pace
   const FLOAT_ANGLE_NEAR = 24;   // launch angle for a float hit taken right up at the net
   const FLOAT_ANGLE_FAR = 37;    // launch angle for a float hit taken from deep in the court —
                                   // a noticeably higher, clearer arc the further back it's played from
-  const SMASH_BASE_SPEED = 1900; // at 23° launch angle — big bump for a much harder, faster-hitting smash
+  const SMASH_BASE_SPEED = 2185; // at 23° launch angle — big bump for a much harder, faster-hitting smash
   const SMASH_NET_SLOWDOWN = 0.55; // speed multiplier applied when smashing right on top of the net,
                                     // scaling back up to 1.0 the farther back the hit is taken —
                                     // keeps close-in smashes from sailing an unrealistically long way
@@ -505,8 +1775,90 @@
   const SMASH_BACK_ANGLE = 23;      // normal launch angle for a smash taken from deeper in the court
   const NET_CLOSE_RANGE = 90;       // distance from the net (px) within which a smash counts as "right
                                      // at the net" and gets the steep safety angle above
+  // Max-power "dive" adjustment: a 5-star power character swings so hard that, without help,
+  // a smash can carry all the way out of bounds. Once that smash crosses onto the opponent's
+  // side of the net and has a little clearance from it, we steepen its descent so it comes down
+  // inside the court instead of sailing long — see the dive step inside updateShuttle().
+  const SMASH_MAXPOWER_DIVE_DIST = 45;          // px past the net (opponent's side) before the dive kicks in
+  const SMASH_MAXPOWER_DIVE_GRAVITY = 1900;     // stronger, CONSTANT downward acceleration applied for the
+                                                 // rest of the flight once triggered — replaces normal gravity
+                                                 // outright (rather than a one-off velocity kick) so the extra
+                                                 // pull is steady the whole way down, not a sudden snap
+  const SMASH_MAXPOWER_DIVE_TERMINAL_VY = 900;  // fall-speed safety cap while diving — set high enough that
+                                                 // it's essentially never reached in normal play, so the
+                                                 // constant acceleration above is what actually shapes the dive
   const SWING_DURATION = 0.28;   // duration of the visual racket-swing animation
   const SHAKE_SMASH_DURATION = 0.28;
+
+  // Net dink (soft net shot): a quick tap of the hit button while standing close to the
+  // net produces a gentle touch shot instead of a normal underhand return — barely clears
+  // the net and drops quickly, the way a real badminton net shot plays. Holding the button
+  // (a real "charge") always falls through to the normal float/smash logic further down.
+  // Grounded AND airborne taps both qualify (see releaseHit) — only the charge duration
+  // and net proximity matter, so this never interferes with jump physics or smashes/clears.
+  const NET_DINK_DISTANCE = 130;        // px from the net within which a tap counts as a dink
+  const NET_DINK_TAP_MAX_CHARGE = 0.14; // charge fraction (of MAX_CHARGE_TIME) below which a
+                                         // press-release counts as a "tap" rather than a hold
+
+  // Dink arc: a real net shot barely clears the tape then drops quickly — the base apex
+  // height below is reached under ordinary gravity, so the rise itself stays gentle and
+  // short for dinks played right up at the net. This is now only the STARTING point for
+  // the arc — see DINK_NET_CLEARANCE_MARGIN below, which grows the apex for dinks played
+  // farther from the net so they still comfortably clear it before the true dink begins.
+  const DINK_ARC_HEIGHT = 42; // px the shuttle rises above the hit point before falling,
+                               // for a dink taken right at the net (distance 0)
+
+  // Pre-net net-clearance guarantee: a dink can be tapped from anywhere within
+  // NET_DINK_DISTANCE of the net, and the farther back it's taken from, the longer the
+  // shuttle spends falling under ordinary gravity before it even reaches the net — so a
+  // fixed, small arc (tuned only for point-blank net shots) would clip the tape or dribble
+  // into it once hit from further away. solveDinkTrajectory() below simulates the REAL
+  // pre-net travel distance and grows the arc (and, as a natural side effect of still
+  // needing to reach the same landing spot, the horizontal launch speed too) just enough
+  // that the shuttle always clears the net by this many px of vertical margin — every
+  // dink still looks/plays like a soft net shot up close, and only gets the lift/pace it
+  // actually needs to survive the trip as the hit is taken farther back.
+  const DINK_NET_CLEARANCE_MARGIN = 16;
+
+  // Dink post-net dive: once the shuttle has crossed the net by a small amount, gravity
+  // switches to a stronger, CONSTANT value for the rest of the flight — same steady-pull
+  // pattern as the max-power smash dive, but tracked with its own separate shuttle fields
+  // (dinkDiveApplied/dinkDir/dinkPostNetGravity) so the two dive systems never collide.
+  // This is only ever armed once the shuttle is truly past the net (see releaseHit) — a
+  // dink is just a well-clearing, slow-paced shot while it's still on the hitter's side.
+  const DINK_POST_NET_TRIGGER_DIST = 22;   // px past the net before the dink's dive kicks in —
+                                            // small, since a net shot should tuck down almost
+                                            // as soon as it crosses, not drift deeper first
+  const DINK_POST_NET_GRAVITY_BASE = 3400; // baseline post-net downward acceleration before
+                                            // the Control-based trajectory adjustment below —
+                                            // noticeably steeper than before so the dive reads
+                                            // as a sharp tuck right after the net rather than a
+                                            // gentle float, without ever touching the shuttle's
+                                            // forward (horizontal) speed
+  const DINK_POST_NET_TERMINAL_VY = 620;   // fall-speed cap while diving — raised alongside the
+                                            // steeper gravity above so the cap doesn't mute it
+
+  // Control-based dink quality: every character can dink (no rating is ever locked out),
+  // but the existing Control stat governs how tight/consistent the resulting shot is.
+  // Both lines below reuse the same statMult() helper already used for speed/power/reach,
+  // just with their own tuning coefficients — no duplicate stat-scaling logic.
+  const DINK_CONTROL_ACCURACY_LINEAR = 0.18; // how much each point of Control above/below
+  const DINK_CONTROL_ACCURACY_KICKER = 0.05; // neutral (3★) tightens/loosens landing accuracy
+  const DINK_CONTROL_DIVE_LINEAR = 0.15;     // how much each point of Control above/below
+  const DINK_CONTROL_DIVE_KICKER = 0.04;     // neutral steepens/softens the post-net dive
+
+  // Landing target zone: the intended landing spot sits between the net and the front
+  // (short) service line, closer to the net — DINK_LANDING_BASE_DIST/VARIANCE_BASE below
+  // are the neutral (3★ Control) values; higher Control divides both down (closer + tighter),
+  // lower Control multiplies both up (deeper + looser), via the accuracy multiplier above.
+  const DINK_LANDING_BASE_DIST = 26;      // px past the net — neutral-Control mean landing spot
+                                           // (pulled in from further back, alongside the steeper
+                                           // post-net gravity above, so the dink drops much closer
+                                           // to the net instead of drifting into mid-front-court)
+  const DINK_LANDING_VARIANCE_BASE = 22;  // px — neutral-Control random landing spread (tightened
+                                           // to match the shorter mean distance above)
+  const DINK_LANDING_MIN_DIST = 10;       // px past the net — safety floor so a lucky roll
+                                           // never lands the dink short of (or on) the net itself
 
   const WIN_SCORE = 21;
   const WIN_CAP = 30;
@@ -550,8 +1902,22 @@
   function speedMultFor(ch){ return statMult(ch && ch.stats && ch.stats.speed, 0.10, 0.02); }
   // power: a max-power (5) character now hits serves/clears/smashes ~36% harder than
   // neutral, a min-power (1) character ~36% softer — the shuttle itself visibly flies
-  // faster off a high-power character's racket
+  // faster off a high-power character's racket. Smashes ALWAYS use this full-strength
+  // multiplier (see powerMultFor call in the 'smash' branch of releaseHit) — this is
+  // deliberately left untouched so 5★ Power smashes keep their existing punch and the
+  // existing max-power dive logic keeps seeing the speeds it was tuned around.
   function powerMultFor(ch){ return statMult(ch && ch.stats && ch.stats.power, 0.12, 0.03); }
+  // power, REGULAR hits only (the underhand "float" return and the serve — see their
+  // call sites below): a much gentler set of coefficients than powerMultFor above, so a
+  // max-power (5) character's ordinary rally shots land inside the court instead of
+  // routinely sailing out, while a high-Power character's regular hits still land
+  // noticeably harder than a low-Power character's (5★ now ~14% harder than neutral,
+  // 1★ ~14% softer — versus the ~36%/36% spread smashes get). Reuses the same statMult()
+  // helper as every other stat multiplier — just its own tuning constants, no duplicate
+  // scaling system.
+  const POWER_REGULAR_LINEAR = 0.05;
+  const POWER_REGULAR_KICKER = 0.01;
+  function powerMultForRegular(ch){ return statMult(ch && ch.stats && ch.stats.power, POWER_REGULAR_LINEAR, POWER_REGULAR_KICKER); }
   // control: a max-control (5) character now has ~55% more effective reach than neutral,
   // a min-control (1) character ~55% less — makes precision players noticeably more
   // forgiving to line up shots with, and low-control ones noticeably trickier
@@ -560,6 +1926,20 @@
     const diff = c - 3;
     const sign = diff > 0 ? 1 : (diff < 0 ? -1 : 0);
     return HIT_REACH_X + diff*14 + sign*diff*diff*3;
+  }
+  // dash eligibility: every Speed rating (1★-5★) can dash now — only the distance differs,
+  // via dashDistanceMultFor below. Kept as its own function (rather than inlining `true`
+  // at each call site) so the double-tap handler and the AI's dash check below still read
+  // the same way, and so a future rebalance has a single place to reintroduce a gate.
+  function canDash(ch){
+    return true;
+  }
+  // dash distance scaling: every tier gets its own distance via the tuned coefficients
+  // above — reuses the same statMult() helper as speedMultFor/powerMultFor/reachFor, just
+  // with its own linear/kicker constants so dash distance can be balanced independently of
+  // ordinary movement speed.
+  function dashDistanceMultFor(ch){
+    return statMult(ch && ch.stats && ch.stats.speed, DASH_DIST_LINEAR, DASH_DIST_KICKER);
   }
 
   // ---------- scenery roster ----------
@@ -635,6 +2015,8 @@
   // ---------- menu flow state ----------
   let charStage = 'left';
   let pendingLeftChar = null, pendingRightChar = null;
+  let randomLeft = false, randomRight = false;
+  let p1Confirmed = false, p2Confirmed = false;
 
   const AI_PROFILES = {
     // reactionDelay/aimError/chargeDuration/jumpChance/missChance govern normal rallies.
@@ -720,7 +2102,21 @@
   right.character = CHARACTERS[1];
 
   const shuttle = {
-    x: W/2, y: GROUND_Y-100, vx:0, vy:0, active:false, kind:'float'
+    x: W/2, y: GROUND_Y-100, vx:0, vy:0, active:false, kind:'float',
+    // fields below track the max-power "dive" adjustment (see updateShuttle) — they're
+    // reset on every serve/hit so the effect only ever applies to the smash that set it
+    hitByMaxPower:false, hitDir:1, maxPowerDiveApplied:false,
+    // fields below track the dink's own post-net dive (see updateShuttle) — kept entirely
+    // separate from the max-power fields above so the two dive systems never interact
+    dinkDiveApplied:false, dinkDir:1, dinkPostNetGravity:0,
+    // true once the current flight has already resolved a net-tape/net-body collision
+    // (see updateShuttle) — reset on every serve/hit, same pattern as the dive flags above,
+    // so the collision outcome (cord dribble or immediate fault) is only ever applied once
+    netCollisionResolved:false,
+    // current visual rotation (radians) of the shuttlecock — see drawShuttle(); tracked on
+    // the shuttle itself (rather than recomputed blind every frame) so it holds steady
+    // instead of snapping/jittering whenever the shuttle is briefly near-stationary
+    angle:-Math.PI/2
   };
   const trail = [];
   const TRAIL_LENGTH = 10;
@@ -736,6 +2132,103 @@
     box.classList.remove('shake');
     void box.offsetWidth; // restart CSS animation
     box.classList.add('shake');
+  }
+
+  // ---------- audio synthesizer ----------
+  let audioCtx = null;
+  function playSound(type) {
+    try {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      
+      const now = audioCtx.currentTime;
+      if (type === 'hit') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(400, now + 0.07);
+        gainNode.gain.setValueAtTime(0.12, now);
+        gainNode.gain.linearRampToValueAtTime(0.01, now + 0.07);
+        osc.start(now);
+        osc.stop(now + 0.07);
+      } else if (type === 'smash') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(140, now + 0.14);
+        gainNode.gain.setValueAtTime(0.15, now);
+        gainNode.gain.linearRampToValueAtTime(0.01, now + 0.14);
+        osc.start(now);
+        osc.stop(now + 0.14);
+      } else if (type === 'point') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(260, now);
+        osc.frequency.setValueAtTime(390, now + 0.08);
+        gainNode.gain.setValueAtTime(0.08, now);
+        gainNode.gain.linearRampToValueAtTime(0.01, now + 0.22);
+        osc.start(now);
+        osc.stop(now + 0.22);
+      } else if (type === 'net') {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(100, now);
+        osc.frequency.linearRampToValueAtTime(60, now + 0.12);
+        gainNode.gain.setValueAtTime(0.08, now);
+        gainNode.gain.linearRampToValueAtTime(0.01, now + 0.12);
+        osc.start(now);
+        osc.stop(now + 0.12);
+      } else if (type === 'fault') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(130, now);
+        osc.frequency.linearRampToValueAtTime(70, now + 0.25);
+        gainNode.gain.setValueAtTime(0.12, now);
+        gainNode.gain.linearRampToValueAtTime(0.01, now + 0.25);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      }
+    } catch(e) {
+      // Audio is blocked or not supported, ignore gracefully
+    }
+  }
+
+  // ---------- juice particles ----------
+  const particles = [];
+  const rings = [];
+
+  function spawnHitParticles(x, y, count, isSmash, pColor) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = isSmash ? (Math.random() * 260 + 140) : (Math.random() * 130 + 50);
+      particles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - (isSmash ? 60 : 15),
+        color: isSmash ? '#ffb800' : pColor,
+        size: isSmash ? (Math.random() * 4.5 + 2) : (Math.random() * 3 + 1.2),
+        alpha: 1,
+        decay: isSmash ? (Math.random() * 1.6 + 1.4) : (Math.random() * 2 + 1.6),
+        gravity: 420
+      });
+    }
+    
+    if (isSmash) {
+      rings.push({
+        x: x,
+        y: y,
+        radius: 6,
+        maxRadius: 80,
+        color: '#ffb800',
+        alpha: 1,
+        speed: 180
+      });
+    }
   }
 
   const keys = {};
@@ -830,7 +2323,7 @@
 
     // hard difficulty knows how to use the dash to close big gaps when the shuttle
     // is landing well out of easy reach — easy/medium never dash, so they still feel beatable
-    if(aiDifficulty === 'hard' && right.onGround && right.dashTimer <= 0){
+    if(aiDifficulty === 'hard' && right.onGround && right.dashTimer <= 0 && canDash(right.character)){
       const travelDist = Math.abs(ai.targetX - centerX);
       if(travelDist > AI_DASH_TRIGGER_DIST && now - right.lastDashTime >= DASH_COOLDOWN){
         right.dashDir = ai.targetX > centerX ? 1 : -1;
@@ -900,6 +2393,7 @@
 
   function tryDash(p, dir, tag, now){
     if(state !== 'rally' && state !== 'serve') return;
+    if(!canDash(p.character)) return; // kept as a guard in case dash eligibility is ever regated
     const last = p.lastTapTime[tag];
     p.lastTapTime[tag] = now;
     if(now - last <= DASH_WINDOW && now - p.lastDashTime >= DASH_COOLDOWN){
@@ -961,9 +2455,17 @@
       return true;
     }
 
+    // net dink: a quick tap (not a hold) taken while standing close to the net plays a
+    // soft touch shot instead of the normal underhand return — this now works whether the
+    // player is grounded or airborne (a tap always dinks near the net); holding the button
+    // for any real charge duration always skips this and falls through to the normal
+    // float/smash logic below, so jump smashes/clears are completely unaffected
+    const distFromNetTap = Math.abs(headX - NET_X);
+    const isNetDink = distFromNetTap <= NET_DINK_DISTANCE && chargeFrac <= NET_DINK_TAP_MAX_CHARGE;
+
     // on the ground it's always an underhand-style return; in the air, a charge of
     // 50% or more turns it into a smash — below that it's a softer underhand return
-    const kind = (!p.onGround && chargeFrac >= 0.5) ? 'smash' : 'float';
+    const kind = isNetDink ? 'dink' : ((!p.onGround && chargeFrac >= 0.5) ? 'smash' : 'float');
     const power = MIN_POWER_MULT + (MAX_POWER_MULT - MIN_POWER_MULT) * chargeFrac;
 
     p.lastHitTime = now;
@@ -990,10 +2492,65 @@
       shuttle.vx = dir * speed * Math.cos(angle);
       shuttle.vy = speed * Math.sin(angle);
       shuttle.kind = 'smash';
+      // flag this flight for the max-power dive adjustment in updateShuttle() — only armed
+      // for 5-star power characters, and only re-armed here so it can only trigger once per smash
+      shuttle.hitByMaxPower = !!(p.character && p.character.stats && p.character.stats.power === 5);
+      shuttle.hitDir = dir;
+      shuttle.maxPowerDiveApplied = false;
+      shuttle.dinkDiveApplied = false;
+      shuttle.netCollisionResolved = false;
       triggerShake(9, SHAKE_SMASH_DURATION);
+      
+      // Smash audio and juice sparks
+      playSound('smash');
+      spawnHitParticles(shuttle.x, shuttle.y, 20, true, p.side === 'left' ? '#3b82f6' : '#ec4899');
+    } else if(kind === 'dink'){
+      // A realistic net shot: a short, gentle arc that barely clears the net, then a
+      // Control-scaled dive pulls it down quickly on the opponent's side. Every character
+      // can dink — Control only changes how tight/consistent the placement is, it never
+      // gates the mechanic itself.
+      shuttle.kind = 'dink';
+      shuttle.hitByMaxPower = false;
+      shuttle.maxPowerDiveApplied = false;
+
+      const control = (p.character && p.character.stats && p.character.stats.control) || 3;
+      // reuses the same statMult() helper used for speed/power/reach elsewhere — just
+      // with its own coefficients — so this isn't a duplicate stat-scaling system
+      const dinkAccuracyMult = statMult(control, DINK_CONTROL_ACCURACY_LINEAR, DINK_CONTROL_ACCURACY_KICKER);
+      const dinkDiveMult = statMult(control, DINK_CONTROL_DIVE_LINEAR, DINK_CONTROL_DIVE_KICKER);
+
+      // higher Control pulls the mean landing spot closer to the net AND tightens the
+      // random spread around it; lower Control pushes the mean spot deeper and widens
+      // the spread — see the tuning comment above DINK_LANDING_BASE_DIST for the numbers
+      const meanDist = DINK_LANDING_BASE_DIST / dinkAccuracyMult;
+      const varianceRange = DINK_LANDING_VARIANCE_BASE / dinkAccuracyMult;
+      const jitter = (Math.random()*2 - 1) * varianceRange;
+      const targetDist = Math.max(DINK_LANDING_MIN_DIST, meanDist + jitter);
+
+      // higher Control also steepens the post-net dive itself, for a crisper drop
+      shuttle.dinkPostNetGravity = DINK_POST_NET_GRAVITY_BASE * dinkDiveMult;
+      shuttle.dinkDiveApplied = false;
+      shuttle.dinkDir = dir;
+      shuttle.netCollisionResolved = false;
+
+      // solves the pre-net arc/pace AND the post-net dive together: the arc (and thus the
+      // launch pace, so it can still reach the same landing spot) automatically scales up
+      // the farther this dink was taken from the net, just enough to guarantee it clears
+      // the net — see solveDinkTrajectory() for the full explanation
+      const dinkLaunch = solveDinkTrajectory(dy, distFromNetTap, shuttle.dinkPostNetGravity, targetDist);
+      shuttle.vx = dir * dinkLaunch.vx;
+      shuttle.vy = dinkLaunch.vy;
+
+      // soft, muted touch — no screen shake, just a light contact sound and a few sparks
+      playSound('hit');
+      spawnHitParticles(shuttle.x, shuttle.y, 4, false, p.side === 'left' ? '#3b82f6' : '#ec4899');
     } else {
       shuttle.kind = 'float';
-      const speed = FLOAT_BASE_SPEED * power * powerMultFor(p.character);
+      shuttle.hitByMaxPower = false;
+      shuttle.maxPowerDiveApplied = false;
+      shuttle.dinkDiveApplied = false;
+      shuttle.netCollisionResolved = false;
+      const speed = FLOAT_BASE_SPEED * power * powerMultForRegular(p.character);
       // the further back from the net the hit is taken, the higher the arc it's sent on —
       // a clear played from the back line lifts noticeably more than one played right at the net
       const distFromNet = Math.abs(headX - NET_X);
@@ -1003,13 +2560,18 @@
       const angle = angleDeg * Math.PI/180;
       shuttle.vx = dir * speed * Math.cos(angle);
       shuttle.vy = -speed * Math.sin(angle);
+      
+      // Standard hit audio and juice sparks + subtle rumble
+      playSound('hit');
+      triggerShake(2.5, 0.12);
+      spawnHitParticles(shuttle.x, shuttle.y, 9, false, p.side === 'left' ? '#3b82f6' : '#ec4899');
     }
     shuttle.x = headX + dir*10;
     shuttle.y = dy;
     return true;
   }
 
-  const SERVE_BASE_SPEED = 980;
+  const SERVE_BASE_SPEED = 1130; // ~15% faster than before, in line with the float/smash bump above
   const SERVE_MIN_POWER_MULT = 0.7;
 
   function doServe(p, chargeFrac){
@@ -1019,13 +2581,17 @@
     p.swingTimer = SWING_DURATION;
     p.swingPowerFrac = 0.6 + 0.4*chargeFrac;
     const dir = p.side === 'left' ? 1 : -1;
-    const speed = SERVE_BASE_SPEED * power * powerMultFor(p.character);
+    const speed = SERVE_BASE_SPEED * power * powerMultForRegular(p.character);
     const angle = 32 * Math.PI/180;
     shuttle.vx = dir * speed * Math.cos(angle);
     shuttle.vy = -speed * Math.sin(angle);
     shuttle.active = true;
     isServeFlight = true;
     state = 'rally';
+    
+    // Serve audio & visual kick
+    playSound('hit');
+    spawnHitParticles(shuttle.x, shuttle.y, 8, false, p.side === 'left' ? '#3b82f6' : '#ec4899');
   }
 
 
@@ -1047,6 +2613,11 @@
     shuttle.vx = 0; shuttle.vy = 0;
     shuttle.active = false;
     shuttle.kind = 'float';
+    shuttle.hitByMaxPower = false;
+    shuttle.maxPowerDiveApplied = false;
+    shuttle.dinkDiveApplied = false;
+    shuttle.netCollisionResolved = false;
+    shuttle.angle = -Math.PI/2;
     trail.length = 0;
     left.charging = false;
     right.charging = false;
@@ -1068,6 +2639,9 @@
     pointMessage = (sideThatScores==='left' ? 'Left' : 'Right') + ' scores';
     pointPauseTimer = 1.1;
     state = 'pointPause';
+    
+    // Play cheer/point chime
+    playSound('point');
   }
 
   function endGame(winner){
@@ -1077,6 +2651,11 @@
     document.getElementById('finalScoreText').textContent =
       'Final score ' + left.score + ' — ' + right.score;
     document.getElementById('gameOverOverlay').classList.remove('hidden');
+    
+    // Play point chimes for a big win!
+    playSound('point');
+    setTimeout(function() { playSound('point'); }, 150);
+    setTimeout(function() { playSound('point'); }, 300);
   }
 
   function startGame(){
@@ -1122,29 +2701,243 @@
     document.getElementById('pauseOverlay').classList.add('hidden');
     document.getElementById('gameOverOverlay').classList.add('hidden');
     document.getElementById('serveTag').classList.add('hidden');
-    document.getElementById('difficultySelect').classList.add('hidden');
     document.getElementById('charSelectOverlay').classList.add('hidden');
     document.getElementById('bgSelectOverlay').classList.add('hidden');
-    document.getElementById('modeSelect').classList.remove('hidden');
+    
+    // Reset our nested start menu container displays
+    document.getElementById('mainMenuOptions').classList.remove('hidden');
+    document.getElementById('difficultyMenuOptions').classList.add('hidden');
+    document.getElementById('optionsMenuOptions').classList.add('hidden');
+    document.getElementById('menuIntro').classList.remove('hidden');
+    
     document.getElementById('startOverlay').classList.remove('hidden');
     state = 'start';
+    initMenuAesthetic();
   }
   document.getElementById('mainMenuBtn').addEventListener('click', goToMainMenu);
   document.getElementById('gameOverMenuBtn').addEventListener('click', goToMainMenu);
+
+  // Screen Auto-scaling logic
+  // selectedResolution === null means "Auto" — fit whatever the real window/screen offers.
+  // When a fixed resolution is picked instead, the game is sized as if displayed on a screen
+  // of exactly that resolution, regardless of the real window size — this is what makes the
+  // setting actually visible/effective rather than silently matching whatever "Auto" already does.
+  let selectedResolution = null;
+
+  function adjustScale() {
+    const wrap = document.getElementById('wrap');
+    if (!wrap) return;
+    
+    const targetWidth = 1320;
+    const targetHeight = 860;
+    
+    const viewportWidth = selectedResolution ? selectedResolution.w : window.innerWidth;
+    const viewportHeight = selectedResolution ? selectedResolution.h : window.innerHeight;
+    
+    const scaleX = (viewportWidth * 0.96) / targetWidth;
+    const scaleY = (viewportHeight * 0.96) / targetHeight;
+    const scale = Math.min(scaleX, scaleY, 1.4); // allow scale up to 1.4x max
+    
+    wrap.style.transform = `scale(${scale})`;
+    wrap.style.transformOrigin = 'center center';
+  }
+  
+  window.addEventListener('resize', adjustScale);
+  window.addEventListener('DOMContentLoaded', adjustScale);
+  setTimeout(adjustScale, 50);
+
+  // Resolution option buttons
+  document.querySelectorAll('.resOption').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      const res = btn.getAttribute('data-res');
+      if (res === 'auto') {
+        selectedResolution = null;
+      } else {
+        const parts = res.split('x');
+        selectedResolution = { w: parseInt(parts[0], 10), h: parseInt(parts[1], 10) };
+      }
+      document.querySelectorAll('.resOption').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      adjustScale();
+    });
+  });
+
+  // Mini-Game Menu Preview Loop
+  let menuAestheticCanvas = null;
+  let menuAestheticCtx = null;
+  let menuAnimationId = null;
+  let menuTime = 0;
+
+  function initMenuAesthetic() {
+    menuAestheticCanvas = document.getElementById('menuAestheticCanvas');
+    if (!menuAestheticCanvas) return;
+    menuAestheticCtx = menuAestheticCanvas.getContext('2d');
+    
+    if (menuAnimationId) cancelAnimationFrame(menuAnimationId);
+    animateMenuAesthetic();
+  }
+  
+  function animateMenuAesthetic() {
+    if (state !== 'start') {
+      menuAnimationId = null;
+      return;
+    }
+    
+    const ctx = menuAestheticCtx;
+    const w = menuAestheticCanvas.width;
+    const h = menuAestheticCanvas.height;
+    ctx.clearRect(0, 0, w, h);
+    
+    menuTime += 0.016;
+    
+    const groundY = h - 50;
+    const netX = w / 2;
+    
+    // Floor area
+    const floorGrad = ctx.createLinearGradient(0, groundY, 0, h);
+    floorGrad.addColorStop(0, '#0f1423');
+    floorGrad.addColorStop(1, '#070a13');
+    ctx.fillStyle = floorGrad;
+    ctx.fillRect(0, groundY, w, h - groundY);
+    
+    // Floor boundary line
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(10, groundY);
+    ctx.lineTo(w - 10, groundY);
+    ctx.stroke();
+    
+    // Net post
+    ctx.strokeStyle = '#5a5e73';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(netX, groundY);
+    ctx.lineTo(netX, groundY - 45);
+    ctx.stroke();
+    
+    // Net mesh
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let ny = groundY - 45; ny <= groundY - 5; ny += 6) {
+      ctx.moveTo(netX - 8, ny);
+      ctx.lineTo(netX + 8, ny);
+    }
+    ctx.stroke();
+    
+    // Simple poses for previews
+    const p1Anim = {
+      legFront: Math.sin(menuTime * 2.5) * 0.2,
+      legBack: -Math.sin(menuTime * 2.5) * 0.2,
+      armFront: 0.2 + Math.sin(menuTime * 1.5) * 0.2,
+      armBack: -0.3
+    };
+    const p2Anim = {
+      legFront: -Math.sin(menuTime * 2.5) * 0.2,
+      legBack: Math.sin(menuTime * 2.5) * 0.2,
+      armFront: 0.2 + Math.cos(menuTime * 1.5) * 0.2,
+      armBack: -0.3
+    };
+    
+    // Draw characters (Maya & Kenji)
+    drawHumanoid(ctx, 100, groundY, 1.2, CHARACTERS[0], p1Anim, 1);
+    drawHumanoid(ctx, w - 100, groundY, 1.2, CHARACTERS[2], p2Anim, -1);
+    
+    // Glowing golden shuttlecock floating gently
+    const shuttleX = netX + Math.sin(menuTime * 1.2) * 80;
+    const shuttleY = groundY - 110 + Math.cos(menuTime * 2.4) * 30;
+    
+    ctx.save();
+    ctx.translate(shuttleX, shuttleY);
+    // Draw subtle shuttle shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    ctx.beginPath();
+    ctx.ellipse(0, groundY - shuttleY, 10, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.rotate(Math.sin(menuTime * 1.2) * 0.4 + Math.PI/2);
+    ctx.fillStyle = '#f8fafc';
+    ctx.beginPath();
+    ctx.arc(0, 3, 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.beginPath();
+    ctx.moveTo(0, 3);
+    ctx.lineTo(-3, -5);
+    ctx.lineTo(3, -5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    
+    // Glowing text/branding at bottom
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.font = '700 42px "Space Grotesk", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText("RALLY 2D", w/2, groundY - 100);
+    
+    menuAnimationId = requestAnimationFrame(animateMenuAesthetic);
+  }
 
   // ---------- menu flow: mode -> character select -> background select -> game ----------
   document.getElementById('btn2p').addEventListener('click', ()=>{
     mode = '2p';
     startCharacterSelect();
   });
+  
   document.getElementById('btnAI').addEventListener('click', ()=>{
-    document.getElementById('modeSelect').classList.add('hidden');
-    document.getElementById('difficultySelect').classList.remove('hidden');
+    document.getElementById('mainMenuOptions').classList.add('hidden');
+    document.getElementById('difficultyMenuOptions').classList.remove('hidden');
+    document.getElementById('menuIntro').classList.add('hidden');
   });
-  document.getElementById('backToMode').addEventListener('click', ()=>{
-    document.getElementById('difficultySelect').classList.add('hidden');
-    document.getElementById('modeSelect').classList.remove('hidden');
+
+  document.getElementById('btnDiffBack').addEventListener('click', ()=>{
+    document.getElementById('difficultyMenuOptions').classList.add('hidden');
+    document.getElementById('mainMenuOptions').classList.remove('hidden');
+    document.getElementById('menuIntro').classList.remove('hidden');
   });
+
+  document.getElementById('btnOptions').addEventListener('click', ()=>{
+    document.getElementById('mainMenuOptions').classList.add('hidden');
+    document.getElementById('optionsMenuOptions').classList.remove('hidden');
+    document.getElementById('menuIntro').classList.add('hidden');
+  });
+
+  document.getElementById('btnOptionsBack').addEventListener('click', ()=>{
+    document.getElementById('optionsMenuOptions').classList.add('hidden');
+    document.getElementById('mainMenuOptions').classList.remove('hidden');
+    document.getElementById('menuIntro').classList.remove('hidden');
+  });
+
+  function updateFullscreenButtonText() {
+    const btn = document.getElementById('btnFullscreen');
+    if (btn) {
+      if (document.fullscreenElement) {
+        btn.textContent = 'EXIT FULLSCREEN';
+      } else {
+        btn.textContent = 'ENTER FULLSCREEN';
+      }
+    }
+  }
+
+  document.getElementById('btnFullscreen').addEventListener('click', ()=>{
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().then(() => {
+        updateFullscreenButtonText();
+      }).catch(err => {
+        console.log(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        updateFullscreenButtonText();
+      }).catch(err => {
+        console.log(`Error exit fullscreen: ${err.message}`);
+      });
+    }
+  });
+
+  document.addEventListener('fullscreenchange', updateFullscreenButtonText);
+
   document.querySelectorAll('.diffBtn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       mode = 'ai';
@@ -1167,84 +2960,192 @@
   function startCharacterSelect(){
     document.getElementById('startOverlay').classList.add('hidden');
     document.getElementById('charSelectOverlay').classList.remove('hidden');
+    
+    // Reset selections
+    pendingLeftChar = CHARACTERS[0]; // Maya
+    randomLeft = false;
+    pendingRightChar = CHARACTERS[1]; // Jordan
+    randomRight = false;
+    p1Confirmed = false;
+    p2Confirmed = false;
+    
     buildCharGrid('left');
+  }
+
+  function updateTekkenAttributes() {
+    const p1SpeedPips = document.getElementById('p1SpeedPips');
+    const p1PowerPips = document.getElementById('p1PowerPips');
+    const p1ControlPips = document.getElementById('p1ControlPips');
+
+    const p2SpeedPips = document.getElementById('p2SpeedPips');
+    const p2PowerPips = document.getElementById('p2PowerPips');
+    const p2ControlPips = document.getElementById('p2ControlPips');
+
+    function drawPlayerPips(pipsContainer, ch, isRandom) {
+      if (!pipsContainer) return;
+      const pips = pipsContainer.querySelectorAll('.attr-pip');
+      if (isRandom || !ch) {
+        pips.forEach(pip => {
+          pip.classList.remove('filled');
+        });
+      } else {
+        const statsMap = {
+          'p1SpeedPips': 'speed',
+          'p1PowerPips': 'power',
+          'p1ControlPips': 'control',
+          'p2SpeedPips': 'speed',
+          'p2PowerPips': 'power',
+          'p2ControlPips': 'control'
+        };
+        const statKey = statsMap[pipsContainer.id];
+        const val = (ch.stats && ch.stats[statKey]) || 3;
+        pips.forEach((pip, idx) => {
+          if (idx < val) {
+            pip.classList.add('filled');
+          } else {
+            pip.classList.remove('filled');
+          }
+        });
+      }
+    }
+
+    drawPlayerPips(p1SpeedPips, pendingLeftChar, randomLeft);
+    drawPlayerPips(p1PowerPips, pendingLeftChar, randomLeft);
+    drawPlayerPips(p1ControlPips, pendingLeftChar, randomLeft);
+
+    drawPlayerPips(p2SpeedPips, pendingRightChar, randomRight);
+    drawPlayerPips(p2PowerPips, pendingRightChar, randomRight);
+    drawPlayerPips(p2ControlPips, pendingRightChar, randomRight);
+  }
+
+  function updateTekkenPreviews() {
+    const canvas1 = document.getElementById('p1PreviewCanvas');
+    const canvas2 = document.getElementById('p2PreviewCanvas');
+    
+    if (canvas1) drawDetailedPortrait(canvas1.getContext('2d'), pendingLeftChar, randomLeft, 160, 180, 1);
+    if (canvas2) drawDetailedPortrait(canvas2.getContext('2d'), pendingRightChar, randomRight, 160, 180, -1);
+    
+    document.getElementById('p1PreviewName').textContent = randomLeft ? 'RANDOM' : (pendingLeftChar ? pendingLeftChar.name : 'NONE');
+    document.getElementById('p2PreviewName').textContent = randomRight ? 'RANDOM' : (pendingRightChar ? pendingRightChar.name : 'NONE');
+    
+    // Highlight active profile
+    const p1Profile = document.getElementById('p1Profile');
+    const p2Profile = document.getElementById('p2Profile');
+    if (charStage === 'left') {
+      p1Profile.classList.add('active');
+      p2Profile.classList.remove('active');
+    } else {
+      p1Profile.classList.remove('active');
+      p2Profile.classList.add('active');
+    }
+    
+    // Update attribute pips (circles) for both players
+    updateTekkenAttributes();
+    
+    // Status labels
+    document.getElementById('p1StateLabel').textContent = p1Confirmed ? 'CONFIRMED' : (charStage === 'left' ? 'SELECTING' : 'PLAYER 1');
+    document.getElementById('p2StateLabel').textContent = p2Confirmed ? 'CONFIRMED' : (charStage === 'right' ? 'SELECTING' : (mode === 'ai' ? 'AI OPPONENT' : 'PLAYER 2'));
+    
+    // Update confirm button
+    const confirmBtn = document.getElementById('tekkenConfirmBtn');
+    if (charStage === 'left') {
+      confirmBtn.textContent = 'CONFIRM PLAYER 1';
+      confirmBtn.classList.remove('disabled');
+    } else if (charStage === 'right') {
+      confirmBtn.textContent = mode === 'ai' ? 'CONFIRM AI OPPONENT' : 'CONFIRM PLAYER 2';
+      confirmBtn.classList.remove('disabled');
+    } else {
+      confirmBtn.textContent = 'ALL SELECTIONS CONFIRMED';
+      confirmBtn.classList.add('disabled');
+    }
   }
 
   function buildCharGrid(which){
     charStage = which;
     const grid = document.getElementById('charGrid');
     grid.innerHTML = '';
+    
     document.getElementById('charSelectTitle').textContent = which === 'left'
       ? (mode === '2p' ? 'Player 1 — Choose Your Character' : 'Choose Your Character')
-      : 'Player 2 — Choose Your Character';
+      : (mode === '2p' ? 'Player 2 — Choose Your Character' : 'Choose AI Opponent');
+      
+    // Create 8 character boxes
     CHARACTERS.forEach(function(ch){
-      const card = document.createElement('div');
-      card.className = 'charCard';
+      const box = document.createElement('div');
+      box.className = 'tekken-grid-box';
+      if (which === 'left' && pendingLeftChar && pendingLeftChar.id === ch.id && !randomLeft) {
+        box.classList.add('selected-left');
+      } else if (which === 'right' && pendingRightChar && pendingRightChar.id === ch.id && !randomRight) {
+        box.classList.add('selected-right');
+      }
+      
       const cnv = document.createElement('canvas');
-      cnv.width = 120; cnv.height = 130;
-      const c2 = cnv.getContext('2d');
-      drawHumanoid(c2, 60, 105, 1, ch, {legFront:0, legBack:0, armFront:-0.3, armBack:-0.5}, 1);
-      const label = document.createElement('div');
-      label.className = 'cardLabel';
-      label.textContent = ch.name;
-      card.appendChild(cnv);
-      card.appendChild(label);
-
-      const tagline = document.createElement('div');
-      tagline.className = 'charTagline';
-      tagline.textContent = ch.tagline || '';
-      card.appendChild(tagline);
-
-      const statBlock = document.createElement('div');
-      statBlock.className = 'statBlock';
-      [['SPD','speed'],['PWR','power'],['CTRL','control']].forEach(function(pair){
-        const label3 = pair[0], key = pair[1];
-        const val = (ch.stats && ch.stats[key]) || 3;
-        const row = document.createElement('div');
-        row.className = 'statRow';
-        const tag = document.createElement('div');
-        tag.className = 'statTag';
-        tag.textContent = label3;
-        const dots = document.createElement('div');
-        dots.className = 'statDots ' + key;
-        for(let i=1;i<=5;i++){
-          const pip = document.createElement('div');
-          pip.className = 'pip' + (i <= val ? ' filled' : '');
-          dots.appendChild(pip);
+      cnv.width = 60; cnv.height = 60;
+      // Draw detailed face portrait for box
+      drawDetailedPortrait(cnv.getContext('2d'), ch, false, 60, 60, 1);
+      box.appendChild(cnv);
+      
+      box.addEventListener('click', function(){
+        if (which === 'left') {
+          pendingLeftChar = ch;
+          randomLeft = false;
+        } else {
+          pendingRightChar = ch;
+          randomRight = false;
         }
-        row.appendChild(tag);
-        row.appendChild(dots);
-        statBlock.appendChild(row);
+        // Redraw grid to update visual selected borders
+        buildCharGrid(which);
       });
-      card.appendChild(statBlock);
-
-      card.addEventListener('click', function(){ selectCharacter(which, ch); });
-      grid.appendChild(card);
+      
+      grid.appendChild(box);
     });
+    
+    // Add 9th box: RANDOM (?)
+    const rBox = document.createElement('div');
+    rBox.className = 'tekken-grid-box random-box';
+    rBox.textContent = '?';
+    if (which === 'left' && randomLeft) {
+      rBox.classList.add('selected-left');
+    } else if (which === 'right' && randomRight) {
+      rBox.classList.add('selected-right');
+    }
+    
+    rBox.addEventListener('click', function() {
+      if (which === 'left') {
+        randomLeft = true;
+      } else {
+        randomRight = true;
+      }
+      buildCharGrid(which);
+    });
+    grid.appendChild(rBox);
+    
+    updateTekkenPreviews();
   }
+
+  // Confirm Selection Button Listener
+  document.getElementById('tekkenConfirmBtn').addEventListener('click', function() {
+    if (charStage === 'left') {
+      p1Confirmed = true;
+      buildCharGrid('right');
+    } else if (charStage === 'right') {
+      p2Confirmed = true;
+      goToBackgroundSelect();
+    }
+  });
 
   function randomCharacterExcluding(id){
     const pool = CHARACTERS.filter(function(c){ return c.id !== id; });
     return pool[Math.floor(Math.random()*pool.length)];
   }
 
-  function selectCharacter(which, ch){
-    if(which === 'left'){
-      pendingLeftChar = ch;
-      if(mode === '2p'){
-        buildCharGrid('right');
-      } else {
-        pendingRightChar = randomCharacterExcluding(ch.id);
-        goToBackgroundSelect();
-      }
-    } else {
-      pendingRightChar = ch;
-      goToBackgroundSelect();
-    }
+  function getRandomCharacter() {
+    return CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
   }
 
   document.getElementById('charBackLink').addEventListener('click', function(){
     if(charStage === 'right'){
+      p1Confirmed = false;
       buildCharGrid('left');
     } else {
       document.getElementById('charSelectOverlay').classList.add('hidden');
@@ -1286,8 +3187,8 @@
       const card = document.createElement('div');
       card.className = 'charCard bgCard';
       const cnv = document.createElement('canvas');
-      cnv.width = 160; cnv.height = 90;
-      drawBgThumb(cnv.getContext('2d'), bg, 160, 90);
+      cnv.width = 180; cnv.height = 135;
+      drawBgThumb(cnv.getContext('2d'), bg, 180, 135);
       const label = document.createElement('div');
       label.className = 'cardLabel';
       label.textContent = bg.name;
@@ -1304,12 +3205,110 @@
     buildCharGrid(mode === '2p' ? 'right' : 'left');
   });
 
+  function fillVSStats(containerId, ch) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    
+    [['SPEED', 'speed'], ['POWER', 'power'], ['CONTROL', 'control']].forEach(function(pair) {
+      const label = pair[0], key = pair[1];
+      const val = (ch.stats && ch.stats[key]) || 3;
+      
+      const row = document.createElement('div');
+      row.className = 'vsStatRow';
+      
+      const lbl = document.createElement('span');
+      lbl.className = 'vsStatLabel';
+      lbl.textContent = label;
+      
+      const valSpan = document.createElement('span');
+      valSpan.className = 'vsStatVal';
+      valSpan.textContent = '★'.repeat(val);
+      
+      row.appendChild(lbl);
+      row.appendChild(valSpan);
+      container.appendChild(row);
+    });
+  }
+
+  function showVSMatchup(leftChar, rightChar, bgId, onComplete) {
+    const vsOverlay = document.getElementById('vsOverlay');
+    vsOverlay.classList.remove('hidden');
+    
+    // Draw left character detailed portrait
+    const canvasL = document.getElementById('vsLeftCanvas');
+    drawDetailedPortrait(canvasL.getContext('2d'), leftChar, false, canvasL.width, canvasL.height, 1);
+    
+    // Draw right character detailed portrait
+    const canvasR = document.getElementById('vsRightCanvas');
+    drawDetailedPortrait(canvasR.getContext('2d'), rightChar, false, canvasR.width, canvasR.height, -1);
+    
+    // Set matching text details
+    document.getElementById('vsLeftName').textContent = leftChar.name;
+    document.getElementById('vsLeftTagline').textContent = leftChar.tagline || 'Ready to serve';
+    document.getElementById('vsRightName').textContent = rightChar.name;
+    document.getElementById('vsRightTagline').textContent = rightChar.tagline || 'The Challenger';
+    
+    // Fill stats on VS screen
+    fillVSStats('vsLeftStats', leftChar);
+    fillVSStats('vsRightStats', rightChar);
+    
+    const bg = BACKGROUNDS.find(function(b){ return b.id === bgId; });
+    document.getElementById('vsCourtName').textContent = bg ? bg.name + " COURT" : "CLASSIC COURT";
+    
+    const bar = document.getElementById('vsLoadingBar');
+    const txt = document.getElementById('vsLoadingText');
+    bar.style.width = '0%';
+    txt.textContent = 'PREPARING COURT...';
+    
+    const startTime = performance.now();
+    const duration = 2200; // 2.2 seconds loading animation
+    
+    function animateVS(nowTime) {
+      const elapsed = nowTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      bar.style.width = (progress * 100) + '%';
+      
+      if (progress < 0.25) {
+        txt.textContent = 'PREPARING COURT...';
+      } else if (progress < 0.55) {
+        txt.textContent = 'SWEATING OUT IN WARM-UP...';
+      } else if (progress < 0.82) {
+        txt.textContent = 'SHARPENING RACKETS...';
+      } else {
+        txt.textContent = 'MATCH START!';
+      }
+      
+      if (progress < 1) {
+        requestAnimationFrame(animateVS);
+      } else {
+        setTimeout(function() {
+          vsOverlay.classList.add('hidden');
+          onComplete();
+        }, 320);
+      }
+    }
+    requestAnimationFrame(animateVS);
+  }
+
   function selectBackground(id){
     selectedBackgroundId = id;
     document.getElementById('bgSelectOverlay').classList.add('hidden');
+    
+    if (randomLeft) {
+      pendingLeftChar = getRandomCharacter();
+    }
+    
+    if (randomRight) {
+      pendingRightChar = randomCharacterExcluding(pendingLeftChar.id);
+    }
+    
     left.character = pendingLeftChar || left.character;
     right.character = pendingRightChar || right.character;
-    startGame();
+    
+    // Start the cinematic loading matchup sequence first!
+    showVSMatchup(left.character, right.character, id, function(){
+      startGame();
+    });
   }
 
   // ---------- update ----------
@@ -1317,7 +3316,9 @@
     let vx = 0;
     const spMult = speedMultFor(p.character);
     if(p.dashTimer > 0){
-      vx = p.dashDir * DASH_SPEED * spMult;
+      // dash distance uses the tier-based multiplier (normal speed scaling for 4★,
+      // plus the extra 5★ bonus) rather than the plain movement multiplier above
+      vx = p.dashDir * DASH_SPEED * dashDistanceMultFor(p.character);
       p.dashTimer -= dt;
     } else {
       if(keys[leftKey]) vx -= MOVE_SPEED * spMult;
@@ -1352,29 +3353,155 @@
     }
   }
 
+  // Simulates one candidate dink flight from the ACTUAL hit point (startX px behind the
+  // net, i.e. distFromNet — not from the net itself) all the way to the ground, using the
+  // exact same gravity/drag/ground constants as updateShuttle(). Returns both where it
+  // lands (px past the net) and the shuttle's height at the instant it crosses the net
+  // (netClearY), so callers can check the flight actually clears the tape on the way over
+  // as well as where the post-net dive brings it down.
+  function simulateDinkFlight(vx0, vy0, startY, distFromNet, postNetGravity){
+    let x = -distFromNet, y = startY, vx = vx0, vy = vy0, dived = false;
+    let netClearY = distFromNet <= 0 ? startY : null; // already at/past the net at t=0
+    const dt = 1/120;
+    for(let i=0; i<600; i++){
+      const g = dived ? postNetGravity : SHUTTLE_GRAVITY;
+      const termVy = dived ? DINK_POST_NET_TERMINAL_VY : SHUTTLE_TERMINAL_VY;
+      vy += g*dt;
+      if(vy > termVy) vy = termVy;
+      vx -= HORIZONTAL_DRAG * vx * dt;
+      const prevX = x;
+      x += vx*dt;
+      y += vy*dt;
+      if(prevX < 0 && x >= 0 && netClearY === null) netClearY = y;
+      if(!dived && x >= DINK_POST_NET_TRIGGER_DIST) dived = true;
+      if(y + SHUTTLE_RADIUS >= GROUND_Y) break;
+    }
+    return {landDist: x, netClearY};
+  }
+
+  // Solves for the initial horizontal launch speed that lands a dink shot at roughly
+  // targetDist past the net, for a FIXED vy0/arc — via the same binary-search-over-a-tiny-
+  // forward-simulation approach as before, just now starting the simulation at the real
+  // pre-net distance so the solved speed already accounts for however far back the hit was
+  // taken (a dink played from further out naturally needs more horizontal pace just to
+  // cover the extra ground and still reach the same spot past the net).
+  function solveDinkLaunchSpeed(vy0, startY, distFromNet, postNetGravity, targetDist){
+    let lo = 20, hi = 1600;
+    for(let iter=0; iter<16; iter++){
+      const mid = (lo+hi)/2;
+      const landDist = simulateDinkFlight(mid, vy0, startY, distFromNet, postNetGravity).landDist;
+      if(landDist < targetDist) lo = mid; else hi = mid;
+    }
+    return (lo+hi)/2;
+  }
+
+  // Full dink trajectory solve: guarantees the shuttle clears the net by at least
+  // DINK_NET_CLEARANCE_MARGIN px, regardless of how far from the net the dink was hit (or
+  // what character/stats hit it) — dinks taken right up at the net use the small base arc
+  // straight away; dinks taken further back automatically get a taller arc (and, from the
+  // horizontal solve above, correspondingly more pace) just large enough to still clear the
+  // net comfortably, then hand off into the exact same post-net dive/landing-distance
+  // solve either way. A handful of growth passes is plenty since each pass is a cheap,
+  // one-off simulation run only at the moment of the hit — never per frame.
+  function solveDinkTrajectory(startY, distFromNet, postNetGravity, targetDist){
+    let arcHeight = DINK_ARC_HEIGHT;
+    let vx0, vy0, netClearY;
+    for(let attempt=0; attempt<8; attempt++){
+      vy0 = -Math.sqrt(2 * SHUTTLE_GRAVITY * arcHeight);
+      vx0 = solveDinkLaunchSpeed(vy0, startY, distFromNet, postNetGravity, targetDist);
+      netClearY = simulateDinkFlight(vx0, vy0, startY, distFromNet, postNetGravity).netClearY;
+      if(netClearY !== null && netClearY <= NET_TOP - DINK_NET_CLEARANCE_MARGIN) break;
+      arcHeight *= 1.35; // didn't clear comfortably yet — raise the arc and try again
+    }
+    return {vx: vx0, vy: vy0};
+  }
+
   function updateShuttle(dt){
     if(!shuttle.active) return;
 
-    shuttle.vy += SHUTTLE_GRAVITY*dt;
-    if(shuttle.vy > SHUTTLE_TERMINAL_VY) shuttle.vy = SHUTTLE_TERMINAL_VY;
+    // Once a max-power dive (smash) or a dink's post-net dive has triggered (see below),
+    // gravity itself switches to a stronger, constant value for the remainder of the
+    // flight — a steady pull rather than a one-off speed boost — so the descent steepens
+    // smoothly and stays steep. The two dive systems use separate flags/values so a smash
+    // dive and a dink dive can never mix up or override one another.
+    const gravity = shuttle.maxPowerDiveApplied ? SMASH_MAXPOWER_DIVE_GRAVITY
+                   : (shuttle.dinkDiveApplied ? shuttle.dinkPostNetGravity : SHUTTLE_GRAVITY);
+    const terminalVy = shuttle.maxPowerDiveApplied ? SMASH_MAXPOWER_DIVE_TERMINAL_VY
+                   : (shuttle.dinkDiveApplied ? DINK_POST_NET_TERMINAL_VY : SHUTTLE_TERMINAL_VY);
+    shuttle.vy += gravity*dt;
+    if(shuttle.vy > terminalVy) shuttle.vy = terminalVy;
     shuttle.vx -= HORIZONTAL_DRAG * shuttle.vx * dt;
 
     shuttle.x += shuttle.vx*dt;
     shuttle.y += shuttle.vy*dt;
 
+    // Max-power smash dive: a 5-star power character's smash flies fast and flat enough that
+    // it can otherwise carry out of bounds. Once it has crossed the net onto the opponent's
+    // side and picked up a little clearance from it, switch on the stronger constant gravity
+    // above for the rest of the flight so it comes down inside the court instead of sailing long.
+    if(shuttle.kind === 'smash' && shuttle.hitByMaxPower && !shuttle.maxPowerDiveApplied){
+      const pastNetDist = shuttle.hitDir === 1 ? (shuttle.x - NET_X) : (NET_X - shuttle.x);
+      if(pastNetDist >= SMASH_MAXPOWER_DIVE_DIST){
+        shuttle.maxPowerDiveApplied = true;
+      }
+    }
+
+    // Dink post-net dive: once a soft net shot has crossed the net by a small amount,
+    // switch on its own (Control-scaled) stronger gravity so it tucks down quickly just
+    // past the net rather than drifting deeper into the front court.
+    if(shuttle.kind === 'dink' && !shuttle.dinkDiveApplied){
+      const pastNetDinkDist = shuttle.dinkDir === 1 ? (shuttle.x - NET_X) : (NET_X - shuttle.x);
+      if(pastNetDinkDist >= DINK_POST_NET_TRIGGER_DIST){
+        shuttle.dinkDiveApplied = true;
+      }
+    }
+
     trail.push({x: shuttle.x, y: shuttle.y, kind: shuttle.kind});
     const maxLen = shuttle.kind === 'smash' ? TRAIL_LENGTH_SMASH : TRAIL_LENGTH;
     while(trail.length > maxLen) trail.shift();
 
-    // net collision
+    // Net collision: a shuttle that clips the thin top TAPE plays a real "net cord" shot —
+    // it keeps drifting the same direction it was already headed, but at a small fixed
+    // creep speed with a light upward kick, so it just dribbles over and drops in close on
+    // the opponent's side. Anywhere lower — the body of the net — is a clean fault: the
+    // rally ends immediately and the point goes to whoever DIDN'T hit it into the net.
+    // netCollisionResolved guards this so it only ever resolves once per flight (the old
+    // per-frame vx-zeroing approach let the shuttle "stick" to the net for several frames).
     const inNetX = shuttle.x + SHUTTLE_RADIUS >= NET_X - NET_WIDTH/2 &&
                    shuttle.x - SHUTTLE_RADIUS <= NET_X + NET_WIDTH/2;
-    if(inNetX && shuttle.y + SHUTTLE_RADIUS >= NET_TOP){
-      shuttle.vx = 0;
+    if(inNetX && !shuttle.netCollisionResolved && shuttle.y + SHUTTLE_RADIUS >= NET_TOP){
+      shuttle.netCollisionResolved = true;
+      const hitTape = (shuttle.y + SHUTTLE_RADIUS) <= NET_TOP + NET_TAPE_BAND;
+      playSound('net');
+      if(hitTape){
+        const dir = shuttle.vx >= 0 ? 1 : -1;
+        shuttle.vx = dir * NET_CORD_CREEP_SPEED;
+        shuttle.vy = NET_CORD_BOUNCE_VY;
+        // nudge it just clear of the net's collision box so it can't immediately re-trigger
+        shuttle.x = NET_X + dir * (NET_WIDTH/2 + SHUTTLE_RADIUS + 1);
+        // this shot's identity is now a soft dribble, not a smash/dink — resetting kind to
+        // 'float' means neither the max-power dive nor the dink post-net dive can fire for
+        // the rest of this flight, so it just falls under ordinary gravity (see gravity
+        // select above) rather than needing a third dive system of its own
+        shuttle.kind = 'float';
+        shuttle.hitByMaxPower = false;
+        spawnHitParticles(NET_X, shuttle.y, 7, false, '#cbd5e1');
+      } else {
+        // hit the net's body — always a fault on whoever hit it; end the rally right now
+        // instead of waiting for it to finish falling
+        shuttle.vx = 0;
+        shuttle.vy = 0;
+        shuttle.active = false;
+        isServeFlight = false;
+        spawnHitParticles(NET_X, shuttle.y, 10, false, '#cbd5e1');
+        awardPoint(lastHitBy === 'left' ? 'right' : 'left');
+      }
     }
 
     // ground collision -> point
     if(shuttle.y + SHUTTLE_RADIUS >= GROUND_Y){
+      spawnHitParticles(shuttle.x, GROUND_Y, 10, false, '#94a3b8');
+      playSound('point');
       shuttle.y = GROUND_Y - SHUTTLE_RADIUS;
       shuttle.active = false;
       if(shuttle.x < COURT_LEFT || shuttle.x > COURT_RIGHT){
@@ -1421,6 +3548,23 @@
         if(pointPauseTimer <= 0) setupServe();
       }
       if(shakeTime > 0) shakeTime = Math.max(0, shakeTime - dt);
+
+      // Update juice particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.vy += p.gravity * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.alpha -= p.decay * dt;
+        if (p.alpha <= 0) particles.splice(i, 1);
+      }
+      // Update rings
+      for (let i = rings.length - 1; i >= 0; i--) {
+        const r = rings[i];
+        r.radius += r.speed * dt;
+        r.alpha = Math.max(0, 1 - r.radius / r.maxRadius);
+        if (r.radius >= r.maxRadius) rings.splice(i, 1);
+      }
     }
 
     draw();
@@ -1436,6 +3580,12 @@
     c.arcTo(x,y+h,x,y,r);
     c.arcTo(x,y,x+w,y,r);
     c.closePath();
+  }
+
+  // small fix to ensure background.decor doesn't crash on standard classic map
+  function drawClassicDecor(c, w, h, gy){
+    c.fillStyle='rgba(255,255,255,0.045)';
+    for(let x=0; x<=w; x+=90){ c.fillRect(x, 0, 1, gy+30); }
   }
 
   function drawLimb(c, px, py, angle, len, w, color, shoeColor){
@@ -1484,6 +3634,262 @@
       default: // 'short'
         c.beginPath(); c.ellipse(0, headCY-r*0.35, r*1.05, r*0.85, 0, Math.PI, Math.PI*2); c.fill();
     }
+  }
+
+  function drawDetailedPortrait(ctx, ch, isRandom, w, h, facing) {
+    ctx.save();
+    ctx.clearRect(0, 0, w, h);
+    
+    if (isRandom) {
+      // Mystery silhouette background
+      let bgGrad = ctx.createRadialGradient(w/2, h/2, w*0.05, w/2, h/2, w*0.7);
+      bgGrad.addColorStop(0, '#1c1c28');
+      bgGrad.addColorStop(1, '#08080c');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, w, h);
+      
+      // Shadowy head & shoulder
+      ctx.fillStyle = '#0f0f15';
+      ctx.strokeStyle = '#22222a';
+      ctx.lineWidth = 2;
+      
+      // Head
+      ctx.beginPath();
+      ctx.arc(w/2, h*0.42, w*0.22, 0, Math.PI*2);
+      ctx.fill();
+      ctx.stroke();
+      
+      // Shoulders
+      ctx.beginPath();
+      ctx.moveTo(w/2 - w*0.35, h);
+      ctx.quadraticCurveTo(w/2 - w*0.3, h*0.65, w/2 - w*0.18, h*0.58);
+      ctx.lineTo(w/2 + w*0.18, h*0.58);
+      ctx.quadraticCurveTo(w/2 + w*0.3, h*0.65, w/2 + w*0.35, h);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      // Question mark
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+      ctx.shadowColor = '#ef4444';
+      ctx.shadowBlur = w*0.1;
+      ctx.font = '800 ' + Math.round(w*0.4) + 'px "Space Grotesk", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('?', w/2, h*0.44);
+      
+      ctx.restore();
+      return;
+    }
+    
+    // Background gradient for real character
+    let glowColor = ch.shirt;
+    let bgGrad = ctx.createRadialGradient(w/2, h/2, w*0.1, w/2, h/2, w*0.8);
+    bgGrad.addColorStop(0, glowColor + '40'); // semi-transparent
+    bgGrad.addColorStop(1, '#0e0e16');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, w, h);
+    
+    // Thin border accent
+    ctx.strokeStyle = glowColor + '80';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(2, 2, w-4, h-4);
+    
+    // Position at bottom center, scaling appropriately
+    ctx.translate(w/2, h*0.95);
+    ctx.scale(facing * (w / 140), h / 160); // automatic responsive scale!
+    
+    // Now draw at standard 140x160 coordinates
+    // Chest/Shoulders
+    ctx.fillStyle = ch.shirt;
+    ctx.beginPath();
+    ctx.moveTo(-45, 0);
+    ctx.quadraticCurveTo(-40, -60, -22, -70); // left shoulder
+    ctx.lineTo(22, -70); // right shoulder
+    ctx.quadraticCurveTo(40, -60, 45, 0);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Shirt collar/stripe
+    ctx.fillStyle = ch.shirt2;
+    ctx.beginPath();
+    ctx.moveTo(-12, -70);
+    ctx.lineTo(12, -70);
+    ctx.lineTo(0, -50);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Neck
+    ctx.fillStyle = ch.skin;
+    ctx.fillRect(-9, -90, 18, 22);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)'; // neck shadow
+    ctx.fillRect(-9, -76, 18, 8);
+    
+    // Head shape
+    ctx.fillStyle = ch.skin;
+    ctx.beginPath();
+    ctx.moveTo(-22, -90);
+    ctx.quadraticCurveTo(-22, -76, 0, -67); // left jaw to chin
+    ctx.quadraticCurveTo(22, -76, 22, -90); // right jaw
+    ctx.lineTo(22, -118);
+    ctx.quadraticCurveTo(0, -127, -22, -118);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Eyes
+    let eyeY = -105;
+    let eyeSpacing = 10;
+    let eyeW = 4.5;
+    let eyeH = 2.5;
+    
+    // Left eye
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(-eyeSpacing, eyeY, eyeW, eyeH, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = ch.hair;
+    ctx.beginPath();
+    ctx.arc(-eyeSpacing, eyeY, 2.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(-eyeSpacing - 1, eyeY - 0.8, 0.7, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Right eye
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(eyeSpacing, eyeY, eyeW, eyeH, 0, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = ch.hair;
+    ctx.beginPath();
+    ctx.arc(eyeSpacing, eyeY, 2.2, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(eyeSpacing - 1, eyeY - 0.8, 0.7, 0, Math.PI*2);
+    ctx.fill();
+    
+    // Eyebrows
+    ctx.strokeStyle = ch.hair;
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(-eyeSpacing - 4, eyeY - 5);
+    ctx.lineTo(-eyeSpacing + 3, eyeY - 4);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(eyeSpacing - 3, eyeY - 4);
+    ctx.lineTo(eyeSpacing + 4, eyeY - 5);
+    ctx.stroke();
+    
+    // Nose
+    ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, -102);
+    ctx.lineTo(1, -96);
+    ctx.lineTo(-1, -96);
+    ctx.stroke();
+    
+    // Mouth
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 1.2;
+    let mouthY = -88;
+    if (ch.id === 'maya') {
+      ctx.beginPath(); ctx.moveTo(-5, mouthY); ctx.quadraticCurveTo(0, mouthY + 2, 5, mouthY - 1); ctx.stroke();
+    } else if (ch.id === 'kenji') {
+      ctx.fillStyle = '#e74c3c';
+      ctx.beginPath(); ctx.arc(0, mouthY, 4, 0, Math.PI, false); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.stroke();
+    } else if (ch.id === 'jordan') {
+      ctx.beginPath(); ctx.moveTo(-6, mouthY); ctx.lineTo(6, mouthY); ctx.stroke();
+    } else if (ch.id === 'amara') {
+      ctx.beginPath(); ctx.moveTo(-6, mouthY - 1); ctx.quadraticCurveTo(0, mouthY + 2, 6, mouthY - 1); ctx.stroke();
+    } else if (ch.id === 'sofia') {
+      ctx.beginPath(); ctx.moveTo(-4, mouthY); ctx.quadraticCurveTo(2, mouthY + 2, 6, mouthY); ctx.stroke();
+    } else if (ch.id === 'diego') {
+      ctx.beginPath(); ctx.moveTo(-5, mouthY - 1); ctx.quadraticCurveTo(-1, mouthY + 2, 5, mouthY - 1); ctx.stroke();
+    } else if (ch.id === 'priya') {
+      ctx.beginPath(); ctx.moveTo(-5, mouthY - 1); ctx.quadraticCurveTo(0, mouthY + 3, 5, mouthY + 1); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.moveTo(-6, mouthY); ctx.quadraticCurveTo(0, mouthY + 2, 6, mouthY); ctx.stroke();
+    }
+    
+    // Hair
+    ctx.fillStyle = ch.hair;
+    let hr = 24;
+    let hcy = -112;
+    
+    switch(ch.hairStyle){
+      case 'bun':
+        ctx.beginPath(); ctx.ellipse(0, hcy + 2, hr * 1.05, hr * 0.9, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(0, hcy - hr - 3, hr * 0.45, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-hr, hcy);
+        ctx.quadraticCurveTo(0, hcy - 10, hr, hcy);
+        ctx.quadraticCurveTo(hr * 0.7, hcy - 18, 0, hcy - hr);
+        ctx.quadraticCurveTo(-hr * 0.7, hcy - 18, -hr, hcy);
+        ctx.fill();
+        break;
+        
+      case 'spiky':
+        ctx.beginPath(); ctx.ellipse(0, hcy + 2, hr, hr * 0.9, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath();
+        let spikes = [-1.8, -1.4, -1.0, -0.7, -0.4, 0.1, 0.4];
+        spikes.forEach(ang => {
+          let hx = Math.cos(ang) * hr;
+          let hy = Math.sin(ang) * hr + hcy;
+          ctx.moveTo(hx, hy);
+          ctx.lineTo(hx * 1.35, hy * 1.35 - 4);
+          ctx.lineTo(hx + Math.cos(ang+0.35)*10, hy + Math.sin(ang+0.35)*10);
+        });
+        ctx.closePath();
+        ctx.fill();
+        break;
+        
+      case 'braids':
+        ctx.beginPath(); ctx.ellipse(0, hcy + 2, hr * 1.05, hr * 0.95, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillRect(-hr * 1.1, hcy + 10, hr * 0.35, 50);
+        ctx.fillRect(hr * 0.75, hcy + 10, hr * 0.35, 50);
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1.2;
+        for (let ty = hcy + 14; ty < hcy + 55; ty += 10) {
+          ctx.beginPath(); ctx.moveTo(-hr * 1.1, ty); ctx.lineTo(-hr * 0.75, ty + 5); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(hr * 0.75, ty); ctx.lineTo(hr * 1.1, ty + 5); ctx.stroke();
+        }
+        break;
+        
+      case 'ponytail':
+        ctx.beginPath(); ctx.ellipse(0, hcy + 2, hr * 1.0, hr * 0.9, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-hr * 1.1, hcy + 10, hr * 0.35, hr * 1.0, -0.4, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = ch.shirt;
+        ctx.fillRect(-hr * 0.9, hcy + 1, 5, 7);
+        break;
+        
+      case 'long':
+        ctx.beginPath(); ctx.ellipse(0, hcy + 2, hr * 1.05, hr * 0.9, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillRect(-hr * 1.15, hcy + 8, hr * 0.4, 55);
+        ctx.fillRect(hr * 0.75, hcy + 8, hr * 0.4, 55);
+        ctx.beginPath();
+        ctx.moveTo(-hr, hcy); ctx.lineTo(0, hcy - 7); ctx.lineTo(hr, hcy); ctx.lineTo(0, hcy - hr);
+        ctx.closePath(); ctx.fill();
+        break;
+        
+      default: // 'short'
+        ctx.beginPath(); ctx.ellipse(0, hcy + 2, hr * 1.08, hr * 0.95, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(-hr, hcy);
+        ctx.lineTo(-hr*0.4, hcy - 4);
+        ctx.lineTo(-hr*0.2, hcy + 3);
+        ctx.lineTo(0, hcy - 2);
+        ctx.lineTo(hr*0.3, hcy + 2);
+        ctx.lineTo(hr, hcy);
+        ctx.lineTo(0, hcy - hr);
+        ctx.closePath(); ctx.fill();
+    }
+    
+    ctx.restore();
   }
 
   function drawHumanoid(c, cx, groundY, scale, ch, ang, facing){
@@ -1699,23 +4105,33 @@
     const spacing = 22;
     const rowYs = [y + h*0.4, y + h*0.78];
     const tones = ['rgba(255,255,255,0.30)','rgba(255,255,255,0.20)','rgba(255,255,255,0.25)','rgba(255,255,255,0.16)'];
+    
+    // Dynamic cheering crowd bounce during scoring celebrations!
+    let bounceY = 0;
+    if(state === 'pointPause'){
+      bounceY = Math.abs(Math.sin(performance.now() * 0.014)) * 6;
+    }
+
     rowYs.forEach(function(ry, ri){
       const offset = ri % 2 === 0 ? 0 : spacing/2;
       let i = 0;
+      const bY = ri === 0 ? bounceY : bounceY * 0.65; // parallax bounce offset
+      
       for(let dx = x + 16 + offset; dx < x + w - 10; dx += spacing){
         c.fillStyle = tones[(i + ri*2) % tones.length];
         i++;
         const headR = Math.max(2.4, h*0.095);
         const bodyW = spacing*0.6, bodyH = h*0.24;
+        
         // head
         c.beginPath();
-        c.arc(dx, ry - headR*1.7, headR, 0, Math.PI*2);
+        c.arc(dx, ry - headR*1.7 - bY, headR, 0, Math.PI*2);
         c.fill();
         // shoulders
         c.beginPath();
         c.moveTo(dx - bodyW/2, ry + bodyH*0.5);
-        c.quadraticCurveTo(dx - bodyW/2, ry - headR*0.3, dx, ry - headR*0.3);
-        c.quadraticCurveTo(dx + bodyW/2, ry - headR*0.3, dx + bodyW/2, ry + bodyH*0.5);
+        c.quadraticCurveTo(dx - bodyW/2, ry - headR*0.3 - bY, dx, ry - headR*0.3 - bY);
+        c.quadraticCurveTo(dx + bodyW/2, ry - headR*0.3 - bY, dx + bodyW/2, ry + bodyH*0.5);
         c.closePath();
         c.fill();
       }
@@ -1778,6 +4194,9 @@
     ctx.strokeStyle = bg.line;
     ctx.lineWidth = 2;
     ctx.strokeRect(COURT_LEFT, COURT_TOP, COURT_RIGHT-COURT_LEFT, GROUND_Y-COURT_TOP);
+
+    // custom decor (if any)
+    if(bg.decor) bg.decor(ctx, W, H, FANS_BOTTOM);
 
     // service lines — drawn with a rough, hand-painted stroke (deliberately looser than
     // the crisp printed boundary above) so they read as an added marking rather than
@@ -1847,21 +4266,48 @@
 
     if(p.charging){
       const frac = Math.min(1, (nowSec - p.chargeStart) / MAX_CHARGE_TIME);
-      const gaugeW = PLAYER_W + 10;
-      const gaugeX = p.x - 5;
-      const gaugeY = p.y - 14;
-      ctx.fillStyle = 'rgba(0,0,0,0.4)';
-      ctx.fillRect(gaugeX, gaugeY, gaugeW, 7);
-      const fillColor = frac < 0.6 ? '#e0562d' : '#ffce54';
-      ctx.fillStyle = fillColor;
-      ctx.fillRect(gaugeX, gaugeY, gaugeW*frac, 7);
-      ctx.strokeStyle = 'rgba(242,237,225,0.8)';
+      const gaugeW = PLAYER_W + 16;
+      const gaugeX = p.x - 8;
+      const gaugeY = p.y - 18;
+      
+      ctx.save();
+      
+      // Shadow / background pill
+      ctx.fillStyle = 'rgba(10, 15, 30, 0.75)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
       ctx.lineWidth = 1;
-      ctx.strokeRect(gaugeX, gaugeY, gaugeW, 7);
-      ctx.fillStyle = '#f2ede1';
-      ctx.font = 'bold 9px "Courier New", monospace';
+      ctx.beginPath();
+      ctx.roundRect(gaugeX, gaugeY, gaugeW, 7, 3.5);
+      ctx.fill();
+      ctx.stroke();
+      
+      // Active progress gradient bar
+      const fillW = gaugeW * frac;
+      if (fillW > 0) {
+        const fillGrad = ctx.createLinearGradient(gaugeX, 0, gaugeX + fillW, 0);
+        // Custom matching theme colors: left player (cyan/blue), right player (magenta/pink)
+        const baseColor = p.side === 'left' ? '#3b82f6' : '#ec4899';
+        fillGrad.addColorStop(0, baseColor);
+        fillGrad.addColorStop(1, '#ffce54'); // glowing tip
+        
+        ctx.fillStyle = fillGrad;
+        if (frac >= 0.85) {
+          ctx.shadowColor = '#ffce54';
+          ctx.shadowBlur = 6;
+        }
+        
+        ctx.beginPath();
+        ctx.roundRect(gaugeX, gaugeY, fillW, 7, 3.5);
+        ctx.fill();
+      }
+      
+      ctx.restore();
+      
+      // Text indicator
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '700 9px "Space Grotesk", sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(Math.round(frac*100) + '%', gaugeX + gaugeW/2, gaugeY - 3);
+      ctx.fillText(Math.round(frac*100) + '%', gaugeX + gaugeW/2, gaugeY - 4);
     }
   }
 
@@ -1905,9 +4351,18 @@
     ctx.save();
     ctx.translate(shuttle.x, shuttle.y);
 
-    // lean the shuttle slightly into its direction of travel for a bit of life
-    const tilt = Math.max(-0.5, Math.min(0.5, (shuttle.vx||0)/2400));
-    ctx.rotate(tilt);
+    // Orient the shuttle by its actual trajectory rather than a small side-lean: the cork
+    // (drawn at the origin/pivot below) always leads, with the feathers trailing directly
+    // opposite the velocity vector — just like a real shuttlecock's drag-heavy feathers
+    // dragging behind its heavier nose. The feather fan is drawn pointing "up" (-y) in
+    // local space, so rotating local "up" to face -velocity means rotating by
+    // atan2(vy,vx) - PI/2 (see derivation in the code-change notes). Physics (shuttle.vx/
+    // vy) are untouched — this only changes how the existing values are drawn.
+    const speedSq = shuttle.vx*shuttle.vx + shuttle.vy*shuttle.vy;
+    if(speedSq > SHUTTLE_ROTATION_MIN_SPEED_SQ){
+      shuttle.angle = Math.atan2(shuttle.vy, shuttle.vx) - Math.PI/2;
+    }
+    ctx.rotate(shuttle.angle);
 
     // soft contact shadow/glow so the shuttle reads clearly against any court color
     ctx.shadowColor = 'rgba(0,0,0,0.55)';
@@ -1966,29 +4421,102 @@
   }
 
   function drawScore(){
-    // dedicated header strip so the scoreboard never intersects the court lines or the
-    // serve-tag pill, regardless of how bright the selected background is
     const stripH = SCORE_STRIP_H;
-    const grad = ctx.createLinearGradient(0,0,0,stripH);
-    grad.addColorStop(0,'rgba(5,10,8,0.55)');
-    grad.addColorStop(1,'rgba(5,10,8,0)');
+    
+    // Smooth dark gradient bar at the top of the stadium
+    const grad = ctx.createLinearGradient(0, 0, 0, stripH + 15);
+    grad.addColorStop(0, 'rgba(6, 10, 22, 0.75)');
+    grad.addColorStop(1, 'rgba(6, 10, 22, 0)');
     ctx.fillStyle = grad;
-    ctx.fillRect(0,0,W,stripH+10);
-
-    ctx.fillStyle = '#f2ede1';
-    ctx.font = 'bold 26px "Courier New", monospace';
+    ctx.fillRect(0, 0, W, stripH + 15);
+    
+    ctx.save();
+    
+    // Balanced scoreboard panel
+    const boxW = 160, boxH = 34;
+    const boxX = W/2 - boxW/2;
+    const boxY = 10;
+    
+    // Scoreboard background pill
+    ctx.fillStyle = 'rgba(8, 12, 28, 0.85)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxW, boxH, 8);
+    ctx.fill();
+    ctx.stroke();
+    
+    // Render the score digits
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '700 24px "Space Grotesk", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(left.score + '   —   ' + right.score, W/2, stripH*0.68);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(left.score + '   -   ' + right.score, W/2, boxY + boxH/2 + 1);
+    
+    // Player Names flanking the score
+    const leftName = (left.character ? left.character.name : 'PLAYER 1').toUpperCase();
+    const rightName = (right.character ? right.character.name : 'PLAYER 2').toUpperCase();
+    
+    // Left Player Name with theme accent color
+    ctx.textAlign = 'right';
+    ctx.font = '700 13px "Space Grotesk", sans-serif';
+    ctx.fillStyle = '#3b82f6';
+    ctx.fillText(leftName, boxX - 16, boxY + boxH/2);
+    
+    // Right Player Name with theme accent color
+    ctx.textAlign = 'left';
+    ctx.font = '700 13px "Space Grotesk", sans-serif';
+    ctx.fillStyle = '#ec4899';
+    ctx.fillText(rightName, boxX + boxW + 16, boxY + boxH/2);
+    
+    ctx.restore();
   }
 
   function drawPointMessage(){
     if(state !== 'pointPause') return;
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(0, H/2-40, W, 80);
-    ctx.fillStyle = '#f2ede1';
-    ctx.font = 'bold 22px "Courier New", monospace';
+    
+    // Glassmorphic translucent alert bar across screen center
+    ctx.fillStyle = 'rgba(8, 12, 28, 0.72)';
+    ctx.fillRect(0, H/2 - 40, W, 80);
+    
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, H/2 - 40);
+    ctx.lineTo(W, H/2 - 40);
+    ctx.moveTo(0, H/2 + 40);
+    ctx.lineTo(W, H/2 + 40);
+    ctx.stroke();
+    
+    ctx.fillStyle = '#ffce54'; // Golden award color
+    ctx.font = '700 20px "Space Grotesk", sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(pointMessage, W/2, H/2+8);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(pointMessage.toUpperCase(), W/2, H/2);
+  }
+
+  function drawParticles() {
+    ctx.save();
+    
+    // Expanding shockwave rings
+    rings.forEach(function(r) {
+      ctx.strokeStyle = 'rgba(255, 184, 0, ' + r.alpha.toFixed(2) + ')';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+    
+    // Sparks
+    particles.forEach(function(p) {
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = p.alpha;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    
+    ctx.restore();
   }
 
   function updateServeTag(){
@@ -2014,6 +4542,10 @@
     drawPlayer(left);
     drawPlayer(right);
     if(shuttle.active || state==='serve') { drawTrail(); drawShuttle(); }
+    
+    // Draw particles inside world space
+    drawParticles();
+    
     drawScore();
     drawPointMessage();
     ctx.restore();
@@ -2022,6 +4554,8 @@
 
   draw();
   requestAnimationFrame(loop);
+  initMenuAesthetic();
+  setTimeout(adjustScale, 50);
 })();
 </script>
 </body>

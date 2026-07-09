@@ -1747,8 +1747,19 @@
   // holds at whatever it last was rather than recomputing from velocity — avoids a jittery/
   // undefined spin while the shuttle is essentially stationary (held on serve, etc.)
   const SHUTTLE_ROTATION_MIN_SPEED_SQ = 25;
-  const SHUTTLE_GRAVITY = 700;
-  const SHUTTLE_TERMINAL_VY = 190; // capped fall speed once momentum is spent -> the "floaty" tail
+  const SHUTTLE_GRAVITY = 950;      // bumped up from 700 so ordinary flight (float/regular
+                                     // hits especially) drops noticeably faster and is harder
+                                     // to run down. Still used for float, serves, and the
+                                     // pre-dive portion of smashes — dinks now use their own
+                                     // DINK_PRE_NET_GRAVITY below instead (see that constant),
+                                     // and dive-specific gravity values (SMASH_MAXPOWER_DIVE_GRAVITY,
+                                     // dink's post-net gravity) are untouched and still layer on
+                                     // top of this
+  const SHUTTLE_TERMINAL_VY = 260; // capped fall speed once momentum is spent -> the "floaty" tail —
+                                    // raised alongside gravity above so the steeper pull
+                                    // actually carries through instead of getting capped early.
+                                    // Same float-only scope as SHUTTLE_GRAVITY — dinks use
+                                    // DINK_PRE_NET_TERMINAL_VY instead
   const HORIZONTAL_DRAG = 1.1;     // per-second exponential decay on forward speed
   const HIT_COOLDOWN = 1.0;
   const HIT_REACH_X = 72;
@@ -1807,6 +1818,15 @@
   // farther from the net so they still comfortably clear it before the true dink begins.
   const DINK_ARC_HEIGHT = 42; // px the shuttle rises above the hit point before falling,
                                // for a dink taken right at the net (distance 0)
+
+  // Dinks deliberately sit OUTSIDE the general SHUTTLE_GRAVITY bump above — a dink is
+  // already a soft, deliberate touch shot (not something that should get "harder to run
+  // down"), and its whole trajectory is separately, carefully tuned (arc height, net
+  // clearance, post-net dive) around a specific gravity value. These restore that original
+  // pre-bump feel for the pre-net portion of a dink's flight only; the post-net dive still
+  // uses its own much steeper DINK_POST_NET_GRAVITY_BASE/TERMINAL_VY, untouched.
+  const DINK_PRE_NET_GRAVITY = 700;
+  const DINK_PRE_NET_TERMINAL_VY = 190;
 
   // Pre-net net-clearance guarantee: a dink can be tapped from anywhere within
   // NET_DINK_DISTANCE of the net, and the farther back it's taken from, the longer the
@@ -2274,6 +2294,11 @@
     if(p.onGround){ p.vy = JUMP_VELOCITY; p.onGround = false; }
   }
 
+  // Default "ready" stance used both to start a serve and, now, as the spot the AI
+  // recovers to whenever the shuttle isn't actually heading its way — same well-back-
+  // from-the-net position as the existing serve stance, reused rather than duplicated.
+  const AI_READY_STANCE_X = (COURT_RIGHT-180-PLAYER_W) + PLAYER_W/2;
+
   function updateAI(dt, now){
     if(mode !== 'ai') return;
     const diff = AI_PROFILES[aiDifficulty];
@@ -2310,8 +2335,22 @@
       const incomingSmash = shuttle.kind === 'smash';
       const reactDelay = incomingSmash ? diff.smashReactionDelay : diff.reactionDelay;
       ai.nextDecisionAt = now + reactDelay;
-      const lead = 0.15;
-      let predicted = shuttle.x + shuttle.vx*lead;
+
+      // Positive vx means the shuttle is currently heading toward the AI's (right) side;
+      // zero/negative means it's heading away — either because the AI itself just hit it,
+      // or the opponent hasn't returned it yet. Only chase a landing SPOT while the
+      // shuttle is actually coming this way; otherwise recover to a ready stance instead
+      // of drifting to (and sitting at) wherever the shuttle currently happens to be —
+      // e.g. right up at the net right after playing a dink.
+      let predicted;
+      if(shuttle.vx > 0){
+        // anticipate where the shot will actually land (not just its current position),
+        // so movement starts early like a player reading the shot, and covers the real
+        // target instead of only the ball's current spot
+        predicted = predictShuttleLandingX();
+      } else {
+        predicted = AI_READY_STANCE_X;
+      }
       predicted += (Math.random()*2-1) * diff.aimError;
       ai.targetX = predicted;
     }
@@ -3364,8 +3403,8 @@
     let netClearY = distFromNet <= 0 ? startY : null; // already at/past the net at t=0
     const dt = 1/120;
     for(let i=0; i<600; i++){
-      const g = dived ? postNetGravity : SHUTTLE_GRAVITY;
-      const termVy = dived ? DINK_POST_NET_TERMINAL_VY : SHUTTLE_TERMINAL_VY;
+      const g = dived ? postNetGravity : DINK_PRE_NET_GRAVITY;
+      const termVy = dived ? DINK_POST_NET_TERMINAL_VY : DINK_PRE_NET_TERMINAL_VY;
       vy += g*dt;
       if(vy > termVy) vy = termVy;
       vx -= HORIZONTAL_DRAG * vx * dt;
@@ -3407,7 +3446,7 @@
     let arcHeight = DINK_ARC_HEIGHT;
     let vx0, vy0, netClearY;
     for(let attempt=0; attempt<8; attempt++){
-      vy0 = -Math.sqrt(2 * SHUTTLE_GRAVITY * arcHeight);
+      vy0 = -Math.sqrt(2 * DINK_PRE_NET_GRAVITY * arcHeight);
       vx0 = solveDinkLaunchSpeed(vy0, startY, distFromNet, postNetGravity, targetDist);
       netClearY = simulateDinkFlight(vx0, vy0, startY, distFromNet, postNetGravity).netClearY;
       if(netClearY !== null && netClearY <= NET_TOP - DINK_NET_CLEARANCE_MARGIN) break;
@@ -3416,18 +3455,53 @@
     return {vx: vx0, vy: vy0};
   }
 
+  // Once a max-power dive (smash) or a dink's post-net dive has triggered, gravity itself
+  // switches to a stronger, constant value for the remainder of the flight — a steady pull
+  // rather than a one-off speed boost — so the descent steepens smoothly and stays steep.
+  // The two dive systems use separate flags/values so a smash dive and a dink dive can
+  // never mix up or override one another. Pulled out into its own helper (instead of only
+  // living inline in updateShuttle) so the AI's landing-spot predictor below can reuse the
+  // exact same rule instead of duplicating it.
+  function currentShuttleGravity(){
+    return shuttle.maxPowerDiveApplied ? SMASH_MAXPOWER_DIVE_GRAVITY
+         : shuttle.dinkDiveApplied ? shuttle.dinkPostNetGravity
+         : shuttle.kind === 'dink' ? DINK_PRE_NET_GRAVITY
+         : SHUTTLE_GRAVITY;
+  }
+  function currentShuttleTerminalVy(){
+    return shuttle.maxPowerDiveApplied ? SMASH_MAXPOWER_DIVE_TERMINAL_VY
+         : shuttle.dinkDiveApplied ? DINK_POST_NET_TERMINAL_VY
+         : shuttle.kind === 'dink' ? DINK_PRE_NET_TERMINAL_VY
+         : SHUTTLE_TERMINAL_VY;
+  }
+
+  // Rough forward simulation of the shuttle's CURRENT flight (from wherever it is right
+  // now, at whatever speed/gravity currently applies) to estimate where it will eventually
+  // land. Deliberately approximate — it holds today's gravity/terminal-vy for the whole
+  // simulated flight rather than re-deriving every future dive trigger — which is plenty
+  // accurate for AI movement planning (it only needs a good "which general spot should I
+  // head toward" answer, not a frame-perfect landing point) while staying cheap enough to
+  // call every AI decision tick.
+  function predictShuttleLandingX(){
+    let x = shuttle.x, y = shuttle.y, vx = shuttle.vx, vy = shuttle.vy;
+    const g = currentShuttleGravity(), termVy = currentShuttleTerminalVy();
+    const dt = 1/60;
+    for(let i=0; i<240; i++){
+      vy += g*dt;
+      if(vy > termVy) vy = termVy;
+      vx -= HORIZONTAL_DRAG * vx * dt;
+      x += vx*dt;
+      y += vy*dt;
+      if(y + SHUTTLE_RADIUS >= GROUND_Y) break;
+    }
+    return x;
+  }
+
   function updateShuttle(dt){
     if(!shuttle.active) return;
 
-    // Once a max-power dive (smash) or a dink's post-net dive has triggered (see below),
-    // gravity itself switches to a stronger, constant value for the remainder of the
-    // flight — a steady pull rather than a one-off speed boost — so the descent steepens
-    // smoothly and stays steep. The two dive systems use separate flags/values so a smash
-    // dive and a dink dive can never mix up or override one another.
-    const gravity = shuttle.maxPowerDiveApplied ? SMASH_MAXPOWER_DIVE_GRAVITY
-                   : (shuttle.dinkDiveApplied ? shuttle.dinkPostNetGravity : SHUTTLE_GRAVITY);
-    const terminalVy = shuttle.maxPowerDiveApplied ? SMASH_MAXPOWER_DIVE_TERMINAL_VY
-                   : (shuttle.dinkDiveApplied ? DINK_POST_NET_TERMINAL_VY : SHUTTLE_TERMINAL_VY);
+    const gravity = currentShuttleGravity();
+    const terminalVy = currentShuttleTerminalVy();
     shuttle.vy += gravity*dt;
     if(shuttle.vy > terminalVy) shuttle.vy = terminalVy;
     shuttle.vx -= HORIZONTAL_DRAG * shuttle.vx * dt;

@@ -2039,22 +2039,32 @@
   let p1Confirmed = false, p2Confirmed = false;
 
   const AI_PROFILES = {
-    // reactionDelay/aimError/chargeDuration/jumpChance/missChance govern normal rallies.
-    // smashReactionDelay/smashChargeDuration/smashMissChance kick in specifically when the
-    // incoming shuttle is a smash — quicker tracking + a short, reliable underhand block
-    // instead of trying (and usually failing) to jump-return it.
-    easy:   { reactionDelay:0.38, aimError:75, jumpChance:0.22, chargeDuration:0.22, missChance:0.20, servePower:0.32,
-              smashReactionDelay:0.30, smashChargeDuration:0.18, smashMissChance:0.35 },
-    medium: { reactionDelay:0.20, aimError:35, jumpChance:0.35, chargeDuration:0.42, missChance:0.08, servePower:0.50,
-              smashReactionDelay:0.15, smashChargeDuration:0.14, smashMissChance:0.15 },
-    hard:   { reactionDelay:0.08, aimError:12, jumpChance:0.45, chargeDuration:0.62, missChance:0.0,  servePower:0.68,
-              smashReactionDelay:0.05, smashChargeDuration:0.10, smashMissChance:0.03 }
+    // reactionDelay/aimError/chargeDurationMin-Max/jumpChance/missChance govern normal
+    // rallies. chargeDurationMin/Max is a RANGE (re-rolled every swing) rather than a
+    // single fixed hold time — a real player doesn't hold every single shot for near-
+    // identical duration, so a fixed value made the AI's power gauge look like it was
+    // always charging to roughly the same (often near-max) point. Rolling within a range
+    // instead gives visibly different power on different swings while keeping each
+    // difficulty's average roughly where it was. anticipateMargin controls how early (in
+    // px before the shuttle reaches the net) the AI starts treating an inbound shot as
+    // something it needs to move for — see the isThreat check in updateAI.
+    // smashReactionDelay/smashChargeDuration kick in specifically when the incoming
+    // shuttle is a smash — quicker tracking + a short, reliable underhand block instead
+    // of trying (and usually failing) to jump-return it; this one stays a fixed short tap
+    // since it needs to reliably land under NET_DINK_TAP_MAX_CHARGE's dink threshold.
+    easy:   { reactionDelay:0.38, aimError:75, jumpChance:0.22, chargeDurationMin:0.10, chargeDurationMax:0.32, missChance:0.20, servePower:0.32,
+              smashReactionDelay:0.30, smashChargeDuration:0.18, smashMissChance:0.35, anticipateMargin:40 },
+    medium: { reactionDelay:0.20, aimError:35, jumpChance:0.35, chargeDurationMin:0.22, chargeDurationMax:0.50, missChance:0.08, servePower:0.50,
+              smashReactionDelay:0.15, smashChargeDuration:0.14, smashMissChance:0.15, anticipateMargin:150 },
+    hard:   { reactionDelay:0.08, aimError:12, jumpChance:0.45, chargeDurationMin:0.32, chargeDurationMax:0.62, missChance:0.0,  servePower:0.68,
+              smashReactionDelay:0.05, smashChargeDuration:0.10, smashMissChance:0.03, anticipateMargin:320 }
   };
   const ai = {
     nextDecisionAt:0, targetX:0, releaseAt:0, serveAt:null,
     opportunityActive:false, willAttempt:false, willJump:false, incomingSmash:false,
     hasJumped:false, hasSwung:false, lastJumpAt:-999
   };
+
 
   // margin between the canvas edge and the court's outer white line — kept wide so there's
   // a clearly visible out-of-bounds strip on each side, rather than the line nearly hugging
@@ -2336,14 +2346,18 @@
       const reactDelay = incomingSmash ? diff.smashReactionDelay : diff.reactionDelay;
       ai.nextDecisionAt = now + reactDelay;
 
-      // Positive vx means the shuttle is currently heading toward the AI's (right) side;
-      // zero/negative means it's heading away — either because the AI itself just hit it,
-      // or the opponent hasn't returned it yet. Only chase a landing SPOT while the
-      // shuttle is actually coming this way; otherwise recover to a ready stance instead
-      // of drifting to (and sitting at) wherever the shuttle currently happens to be —
-      // e.g. right up at the net right after playing a dink.
+      // Don't track the shuttle for its entire flight like a scripted camera — a real
+      // player stands somewhere reasonable and only actually moves once a shot is close
+      // enough to be a real threat they need to answer. "Threat" = heading toward the
+      // AI's side (vx > 0) AND within anticipateMargin px of the net — easy difficulty
+      // barely reacts before the shuttle is already on top of it, hard reads the shot
+      // earlier (while it's still crossing) and starts moving sooner, same as a sharper
+      // player would. Anything else (shuttle still deep on the opponent's side, or
+      // heading away because the AI just hit it) — hold the ready stance instead of
+      // drifting to wherever the shuttle currently happens to be.
+      const isThreat = shuttle.vx > 0 && shuttle.x >= NET_X - diff.anticipateMargin;
       let predicted;
-      if(shuttle.vx > 0){
+      if(isThreat){
         // anticipate where the shot will actually land (not just its current position),
         // so movement starts early like a player reading the shot, and covers the real
         // target instead of only the ball's current spot
@@ -2412,7 +2426,8 @@
       if(ai.willAttempt && !ai.hasSwung && inReach && canReachHeight && shuttleOnMySide &&
          !right.charging && now - right.lastHitTime >= HIT_COOLDOWN){
         startCharge(right, now);
-        const chargeDur = ai.incomingSmash ? diff.smashChargeDuration : diff.chargeDuration;
+        const chargeDur = ai.incomingSmash ? diff.smashChargeDuration
+                         : diff.chargeDurationMin + Math.random() * (diff.chargeDurationMax - diff.chargeDurationMin);
         ai.releaseAt = now + chargeDur + (Math.random()*0.12 - 0.06);
       }
       if(right.charging && now >= ai.releaseAt){

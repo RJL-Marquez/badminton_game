@@ -521,6 +521,53 @@
     flex-wrap: wrap;
   }
 
+  .keybindRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    font-size: 11.5px;
+  }
+  .keybindActionLabel {
+    color: rgba(255, 255, 255, 0.6);
+    letter-spacing: 0.3px;
+  }
+  .keybindBtn {
+    min-width: 48px;
+    text-align: center;
+    font-size: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    padding: 3px 8px !important;
+    transition: border-color 0.2s ease, color 0.2s ease;
+  }
+  .keybindBtn:hover { border-color: rgba(255, 255, 255, 0.35); }
+  .keybindBtn.listening {
+    color: var(--accent2) !important;
+    border-color: var(--accent2);
+    animation: keybindPulse 1s ease-in-out infinite;
+  }
+  .keybindBtn.rejected {
+    color: #ef4444 !important;
+    border-color: #ef4444;
+  }
+  @keyframes keybindPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+  }
+
+  .versionLabel {
+    position: absolute;
+    left: 16px;
+    bottom: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.35);
+    pointer-events: none;
+    z-index: 5;
+  }
+
   /* Compact Controls Help Block */
   .compactControlsInfo {
     margin-top: auto;
@@ -1495,6 +1542,32 @@
               </div>
             </div>
 
+            <div class="menuSettingRow">
+              <div class="menuSettingLabel">Advanced Controls</div>
+              <button class="menuTextLink inlineTextBtn" id="btnAdvancedControls" title="Enable Advanced Controls — manual attack angle for human players">OFF</button>
+            </div>
+
+            <div class="menuSettingRow" style="flex-direction:column; align-items:flex-start; gap:8px;">
+              <div class="menuSettingLabel" style="min-width:0;">Attack Angle Keys</div>
+              <div class="keybindRow">
+                <span class="keybindActionLabel">P1 Angle Up</span>
+                <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p1AngleUp">Q</button>
+              </div>
+              <div class="keybindRow">
+                <span class="keybindActionLabel">P1 Angle Down</span>
+                <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p1AngleDown">E</button>
+              </div>
+              <div class="keybindRow">
+                <span class="keybindActionLabel">P2 Angle Up</span>
+                <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p2AngleUp">U</button>
+              </div>
+              <div class="keybindRow">
+                <span class="keybindActionLabel">P2 Angle Down</span>
+                <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p2AngleDown">O</button>
+              </div>
+              <button class="menuTextLink inlineTextBtn" id="btnResetKeybinds" style="font-size:11px !important; opacity:0.6;">RESET TO DEFAULTS</button>
+            </div>
+
             <button class="menuTextLink backLinkBtn" id="btnOptionsBack">← BACK TO MAIN MENU</button>
           </div>
         </div>
@@ -1520,6 +1593,8 @@
         <canvas id="menuAestheticCanvas" width="480" height="340"></canvas>
         <div class="aestheticFeature">ACCURATE PHYSICS • 8 CHARACTERS • 6 COURTS</div>
       </div>
+
+      <div id="versionLabel" class="versionLabel"></div>
     </div>
 
     <div id="charSelectOverlay" class="overlay hidden">
@@ -1704,6 +1779,13 @@
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
+
+  // ---------- centralized version ----------
+  // Single source of truth for the game version — see VERSIONING.md.
+  // The Main Menu version label reads this value; nowhere else should hardcode it.
+  const GAME_VERSION = '1.2.0';
+  const versionLabelEl = document.getElementById('versionLabel');
+  if(versionLabelEl) versionLabelEl.textContent = 'Version ' + GAME_VERSION;
 
   const GROUND_Y = 620;
   const SCORE_STRIP_H = 54;      // fixed header strip height, independent of court size
@@ -2006,11 +2088,122 @@
   let state = 'start'; // start | serve | rally | pointPause | gameOver
   let pointPauseTimer = 0;
   let pointMessage = '';
+  const POINT_PAUSE_DURATION = 1.1; // how long the rally-result overlay stays up, in seconds
+  const POINT_PAUSE_FADE_DURATION = 0.3; // trailing portion of that time spent fading out
+
+  // RallyResultLabels — display text for every rally-ending reason awardPoint() can be
+  // given. Codes map 1:1 to the actual collision/fault branches that call awardPoint();
+  // UNKNOWN_FAULT is only a defensive fallback for a reason-less call and should never
+  // actually surface during play.
+  const RALLY_RESULT_LABELS = {
+    OUT: 'OUT',
+    NET_FAULT: 'NET FAULT',
+    SERVICE_FAULT: 'SERVICE FAULT',
+    SHUTTLE_LANDED: 'SHUTTLE LANDED',
+    DOUBLE_HIT: 'DOUBLE HIT',
+    UNKNOWN_FAULT: 'UNKNOWN FAULT'
+  };
+  let rallyResultLabel = '';
+
   let servingSide = 'left';
   let lastHitBy = null; // 'left' | 'right' — who last touched the shuttle (for out-of-bounds faults)
   let mode = '2p'; // '2p' | 'ai' — AI always controls the right player
   let aiDifficulty = 'medium';
   let paused = false;
+
+  // ---------- advanced controls: manual attack angle ----------
+  // AdvancedControlSettings — master toggle for the whole feature set. AI players never
+  // read this or any of the state below; they keep using releaseHit()'s default angles.
+  let advancedControlsEnabled = false;
+
+  // AngleLimits — every manual attack angle is clamped/stepped against these. Kept as a
+  // single set of constants so future tuning (or new advanced-control features) only
+  // needs to touch one place. Positive side capped much lower than negative — a real
+  // smash/clear should never be encouraged to launch steeply upward, only ever flattened
+  // a little — while the negative side keeps a full range for steep, aggressive angles.
+  // Five evenly-spaced positions: -45 / -30 / -15 / 0 / +15.
+  const ATTACK_ANGLE_MIN = -45;
+  const ATTACK_ANGLE_MAX = 15;
+  const ATTACK_ANGLE_STEP = 15;
+  const ATTACK_ANGLE_DEFAULT = 0;
+
+  function clampAttackAngle(deg){
+    return Math.max(ATTACK_ANGLE_MIN, Math.min(ATTACK_ANGLE_MAX, deg));
+  }
+
+  // InputBindings — the four attack-angle actions are looked up by code here rather than
+  // hardcoded in the keydown listener, so they can be rebound from Settings at runtime.
+  const DEFAULT_KEY_BINDINGS = { p1AngleUp:'KeyQ', p1AngleDown:'KeyE', p2AngleUp:'KeyU', p2AngleDown:'KeyO' };
+  let keyBindings = Object.assign({}, DEFAULT_KEY_BINDINGS);
+  // keys that already drive core gameplay — never assignable to an attack-angle action
+  const RESERVED_KEY_CODES = ['KeyW','KeyA','KeyD','ArrowUp','ArrowLeft','ArrowRight','Space','Enter','Escape','KeyR'];
+
+  function keyLabel(code){
+    if(!code) return '—';
+    if(code.indexOf('Key') === 0) return code.slice(3);
+    if(code.indexOf('Digit') === 0) return code.slice(5);
+    if(code === 'Space') return 'SPACE';
+    return code.replace('Arrow','').toUpperCase();
+  }
+
+  // rebind-capture UI state — set while a keybindBtn is waiting for the next keypress
+  let listeningForAction = null;
+
+  function updateKeybindButtons(){
+    document.querySelectorAll('.keybindBtn').forEach(function(btn){
+      const action = btn.getAttribute('data-action');
+      btn.classList.remove('listening');
+      if(listeningForAction === action){
+        btn.textContent = '...';
+        btn.classList.add('listening');
+      } else {
+        btn.textContent = keyLabel(keyBindings[action]);
+      }
+    });
+  }
+
+  function rejectRebind(action){
+    const btn = document.querySelector('.keybindBtn[data-action="' + action + '"]');
+    if(!btn) return;
+    btn.classList.remove('listening');
+    btn.classList.add('rejected');
+    btn.textContent = 'TAKEN';
+    setTimeout(function(){
+      btn.classList.remove('rejected');
+      updateKeybindButtons();
+    }, 700);
+  }
+
+  // captures the very next keydown while a rebind is pending — registered on the capture
+  // phase so it intercepts the key before the main gameplay keydown listener sees it
+  window.addEventListener('keydown', function(e){
+    if(!listeningForAction) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const action = listeningForAction;
+    const code = e.code;
+    listeningForAction = null;
+    if(code === 'Escape'){ updateKeybindButtons(); return; }
+    const conflict = RESERVED_KEY_CODES.indexOf(code) !== -1 ||
+      Object.keys(keyBindings).some(function(a){ return a !== action && keyBindings[a] === code; });
+    if(conflict){ rejectRebind(action); return; }
+    keyBindings[action] = code;
+    updateKeybindButtons();
+  }, true);
+
+  // A player is "human controlled" unless they're the right-side player in AI mode —
+  // mirrors the mode !== 'ai' gate already used throughout for right-player-only input.
+  function isHumanControlled(p){
+    return !(p.side === 'right' && mode === 'ai');
+  }
+
+  // AttackAngleController — the only place PlayerAttackAngle is ever mutated.
+  function adjustAttackAngle(p, deltaDeg){
+    if(!advancedControlsEnabled) return;
+    if(!isHumanControlled(p)) return; // AI players ignore Advanced Controls entirely
+    if(state !== 'rally' && state !== 'serve') return;
+    p.attackAngle = clampAttackAngle(p.attackAngle + deltaDeg);
+  }
 
   // ---------- menu flow state ----------
   let charStage = 'left';
@@ -2092,7 +2285,13 @@
       swingPowerFrac:1,
       character:null,
       minX: onLeft ? COURT_LEFT-12 : NET_X + NET_WIDTH/2 + 8,
-      maxX: onLeft ? NET_X - NET_WIDTH/2 - 8 - PLAYER_W : COURT_RIGHT+12-PLAYER_W
+      maxX: onLeft ? NET_X - NET_WIDTH/2 - 8 - PLAYER_W : COURT_RIGHT+12-PLAYER_W,
+      // PlayerAttackAngle — each player's own manual attack angle (degrees); only ever
+      // read/written when Advanced Controls is on and this player is human-controlled.
+      attackAngle: ATTACK_ANGLE_DEFAULT,
+      // eased copy used purely for the direction indicator's rotation, so it settles
+      // smoothly instead of snapping — never read by the actual trajectory math
+      attackAngleDisplay: ATTACK_ANGLE_DEFAULT
     };
   }
 
@@ -2259,6 +2458,13 @@
     // hit / serve — press-and-hold to charge, release to swing
     if(e.code === 'Space') startCharge(left, now);
     if(e.code === 'Enter' && mode !== 'ai') startCharge(right, now);
+
+    // advanced controls — manual attack angle (no-op unless Advanced Controls is on).
+    // Looked up through keyBindings so Settings > Advanced Controls can rebind these.
+    if(e.code === keyBindings.p1AngleUp) adjustAttackAngle(left, ATTACK_ANGLE_STEP);
+    if(e.code === keyBindings.p1AngleDown) adjustAttackAngle(left, -ATTACK_ANGLE_STEP);
+    if(e.code === keyBindings.p2AngleUp && mode !== 'ai') adjustAttackAngle(right, ATTACK_ANGLE_STEP);
+    if(e.code === keyBindings.p2AngleDown && mode !== 'ai') adjustAttackAngle(right, -ATTACK_ANGLE_STEP);
 
     if(state === 'gameOver' && e.code==='KeyR') restartGame();
   });
@@ -2451,7 +2657,7 @@
     // one-touch rule: can't hit it twice in a row on the same side
     if(lastHitBy === p.side){
       shuttle.active = false;
-      awardPoint(p.side === 'left' ? 'right' : 'left');
+      awardPoint(p.side === 'left' ? 'right' : 'left', 'DOUBLE_HIT');
       return true;
     }
 
@@ -2488,7 +2694,11 @@
       // their normal flatter angle regardless of how far from the net they were
       const netCloseFrac = Math.max(0, Math.min(1, 1 - distFromNet / NET_CLOSE_RANGE));
       const angleDeg = SMASH_BACK_ANGLE + (SMASH_NET_STEEP_ANGLE - SMASH_BACK_ANGLE) * netCloseFrac;
-      const angle = angleDeg * Math.PI/180;
+      // manual attack angle only ever applies to human players with Advanced Controls on —
+      // AI keeps the default angleDeg untouched. Positive angle flattens/lifts the smash
+      // (subtracted from the downward angle); negative steepens it.
+      const manualOffsetSmash = (advancedControlsEnabled && isHumanControlled(p)) ? p.attackAngle : 0;
+      const angle = (angleDeg - manualOffsetSmash) * Math.PI/180;
       shuttle.vx = dir * speed * Math.cos(angle);
       shuttle.vy = speed * Math.sin(angle);
       shuttle.kind = 'smash';
@@ -2557,7 +2767,9 @@
       const halfCourt = (COURT_RIGHT - COURT_LEFT)/2;
       const netDistFrac = Math.max(0, Math.min(1, distFromNet / halfCourt));
       const angleDeg = FLOAT_ANGLE_NEAR + (FLOAT_ANGLE_FAR - FLOAT_ANGLE_NEAR) * netDistFrac;
-      const angle = angleDeg * Math.PI/180;
+      // manual attack angle: positive lifts the clear into a higher arc, negative flattens it
+      const manualOffsetFloat = (advancedControlsEnabled && isHumanControlled(p)) ? p.attackAngle : 0;
+      const angle = (angleDeg + manualOffsetFloat) * Math.PI/180;
       shuttle.vx = dir * speed * Math.cos(angle);
       shuttle.vy = -speed * Math.sin(angle);
       
@@ -2627,7 +2839,9 @@
     state = 'serve';
   }
 
-  function awardPoint(sideThatScores){
+  // reason is one of the RALLY_RESULT_LABELS keys (see above); optional and defaulting to
+  // UNKNOWN_FAULT purely as a safety net — every current call site passes an explicit one.
+  function awardPoint(sideThatScores, reason){
     if(sideThatScores === 'left') left.score++; else right.score++;
     const a = left.score, b = right.score;
     const leader = a>=b ? left : right;
@@ -2637,9 +2851,10 @@
       return;
     }
     pointMessage = (sideThatScores==='left' ? 'Left' : 'Right') + ' scores';
-    pointPauseTimer = 1.1;
+    rallyResultLabel = RALLY_RESULT_LABELS[reason] || RALLY_RESULT_LABELS.UNKNOWN_FAULT;
+    pointPauseTimer = POINT_PAUSE_DURATION;
     state = 'pointPause';
-    
+
     // Play cheer/point chime
     playSound('point');
   }
@@ -2668,6 +2883,8 @@
       ? ('vs AI · ' + aiDifficulty.charAt(0).toUpperCase() + aiDifficulty.slice(1))
       : '2-player') + ' · Esc to pause';
     left.score = 0; right.score = 0;
+    left.attackAngle = ATTACK_ANGLE_DEFAULT; left.attackAngleDisplay = ATTACK_ANGLE_DEFAULT;
+    right.attackAngle = ATTACK_ANGLE_DEFAULT; right.attackAngleDisplay = ATTACK_ANGLE_DEFAULT;
     ai.nextDecisionAt = 0; ai.serveAt = null; ai.opportunityActive = false;
     setupServe();
   }
@@ -2677,6 +2894,8 @@
     left.x = COURT_LEFT+180; left.y = GROUND_Y-PLAYER_H; left.vx=0; left.vy=0; left.onGround=true;
     right.x = COURT_RIGHT-180-PLAYER_W; right.y = GROUND_Y-PLAYER_H; right.vx=0; right.vy=0; right.onGround=true;
     left.score = 0; right.score = 0;
+    left.attackAngle = ATTACK_ANGLE_DEFAULT; left.attackAngleDisplay = ATTACK_ANGLE_DEFAULT;
+    right.attackAngle = ATTACK_ANGLE_DEFAULT; right.attackAngleDisplay = ATTACK_ANGLE_DEFAULT;
     ai.nextDecisionAt = 0; ai.serveAt = null; ai.opportunityActive = false;
     setupServe();
   }
@@ -2937,6 +3156,24 @@
   });
 
   document.addEventListener('fullscreenchange', updateFullscreenButtonText);
+
+  document.getElementById('btnAdvancedControls').addEventListener('click', ()=>{
+    advancedControlsEnabled = !advancedControlsEnabled;
+    document.getElementById('btnAdvancedControls').textContent = advancedControlsEnabled ? 'ON' : 'OFF';
+  });
+
+  document.querySelectorAll('.keybindBtn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      listeningForAction = btn.getAttribute('data-action');
+      updateKeybindButtons();
+    });
+  });
+  document.getElementById('btnResetKeybinds').addEventListener('click', function(){
+    keyBindings = Object.assign({}, DEFAULT_KEY_BINDINGS);
+    listeningForAction = null;
+    updateKeybindButtons();
+  });
+  updateKeybindButtons();
 
   document.querySelectorAll('.diffBtn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -3326,6 +3563,8 @@
     }
     p.vx = vx;
     p.swingTimer = Math.max(0, p.swingTimer - dt);
+    // ease the displayed angle toward the real one — purely cosmetic, for the indicator's rotation
+    p.attackAngleDisplay += (p.attackAngle - p.attackAngleDisplay) * Math.min(1, 10*dt);
     p.x += vx*dt;
 
     // during a serve, both the server and the receiver must stay inside their own
@@ -3494,7 +3733,7 @@
         shuttle.active = false;
         isServeFlight = false;
         spawnHitParticles(NET_X, shuttle.y, 10, false, '#cbd5e1');
-        awardPoint(lastHitBy === 'left' ? 'right' : 'left');
+        awardPoint(lastHitBy === 'left' ? 'right' : 'left', 'NET_FAULT');
       }
     }
 
@@ -3507,15 +3746,15 @@
       if(shuttle.x < COURT_LEFT || shuttle.x > COURT_RIGHT){
         // out of bounds: fault on whoever hit it last, point to the other side
         const faultSide = lastHitBy;
-        awardPoint(faultSide === 'left' ? 'right' : 'left');
+        awardPoint(faultSide === 'left' ? 'right' : 'left', 'OUT');
       } else if(isServeFlight && isServiceFault(shuttle.x)){
         // an untouched serve that lands too close to the net or past the long service
         // line is a fault on the server, regardless of it still being inside the outer
         // boundary — point goes to the receiver
-        awardPoint(servingSide === 'left' ? 'right' : 'left');
+        awardPoint(servingSide === 'left' ? 'right' : 'left', 'SERVICE_FAULT');
       } else {
         const landedLeft = shuttle.x < NET_X;
-        awardPoint(landedLeft ? 'right' : 'left');
+        awardPoint(landedLeft ? 'right' : 'left', 'SHUTTLE_LANDED');
       }
       isServeFlight = false;
     }
@@ -4223,6 +4462,40 @@
     ctx.fillRect(NET_X+NET_WIDTH/2-1, NET_TOP-6, 3, NET_HEIGHT+6);
   }
 
+  // AttackDirectionIndicator — a small chevron near the player's chest showing the
+  // manual attack angle. Human players only; hidden the instant a player is AI-controlled
+  // or Advanced Controls is off. Reads the eased attackAngleDisplay so it settles smoothly
+  // rather than snapping between angle positions.
+  function drawAttackAngleIndicator(p){
+    if(!advancedControlsEnabled || !isHumanControlled(p)) return;
+    const cx = p.x + PLAYER_W/2;
+    const originY = p.y + 14;
+    const dir = p.side === 'left' ? 1 : -1;
+    const rad = p.attackAngleDisplay * Math.PI/180;
+    const len = 24;
+    const color = p.side === 'left' ? '#3b82f6' : '#ec4899';
+
+    ctx.save();
+    ctx.translate(cx + dir*10, originY);
+    ctx.rotate(dir === 1 ? -rad : Math.PI + rad);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.85;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(len, 0);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(len, 0);
+    ctx.lineTo(len - 7, -4);
+    ctx.lineTo(len - 7, 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
   function drawPlayer(p){
     const ch = p.character || CHARACTERS[0];
     const nowSec = performance.now()/1000;
@@ -4263,6 +4536,8 @@
 
     const facing = p.side === 'left' ? 1 : -1;
     drawHumanoid(ctx, cx, groundY, 1, ch, {legFront:legFront, legBack:legBack, armFront:armFront, armBack:armBack}, facing);
+
+    drawAttackAngleIndicator(p);
 
     if(p.charging){
       const frac = Math.min(1, (nowSec - p.chargeStart) / MAX_CHARGE_TIME);
@@ -4468,31 +4743,68 @@
     ctx.font = '700 13px "Space Grotesk", sans-serif';
     ctx.fillStyle = '#ec4899';
     ctx.fillText(rightName, boxX + boxW + 16, boxY + boxH/2);
-    
+
+    // Manual attack angle readout — only for human players, only while Advanced Controls is on
+    if(advancedControlsEnabled){
+      ctx.font = '600 10px "Space Grotesk", sans-serif';
+      if(isHumanControlled(left)){
+        ctx.textAlign = 'right';
+        ctx.fillStyle = 'rgba(59, 130, 246, 0.8)';
+        ctx.fillText('ANGLE ' + formatAttackAngle(left.attackAngle), boxX - 16, boxY + boxH/2 + 14);
+      }
+      if(isHumanControlled(right)){
+        ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(236, 72, 153, 0.8)';
+        ctx.fillText('ANGLE ' + formatAttackAngle(right.attackAngle), boxX + boxW + 16, boxY + boxH/2 + 14);
+      }
+    }
+
     ctx.restore();
+  }
+
+  function formatAttackAngle(deg){
+    return (deg > 0 ? '+' : '') + deg + '°';
   }
 
   function drawPointMessage(){
     if(state !== 'pointPause') return;
-    
-    // Glassmorphic translucent alert bar across screen center
+
+    // fade out over the trailing portion of the pause so the overlay never just vanishes —
+    // full opacity for most of the pause, then eases to 0 right as play is about to resume
+    const alpha = pointPauseTimer < POINT_PAUSE_FADE_DURATION
+      ? Math.max(0, pointPauseTimer / POINT_PAUSE_FADE_DURATION) : 1;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // Glassmorphic translucent alert bar across screen center — tall enough for two lines:
+    // the rally result (why it ended) above the existing score line (who it went to)
     ctx.fillStyle = 'rgba(8, 12, 28, 0.72)';
-    ctx.fillRect(0, H/2 - 40, W, 80);
-    
+    ctx.fillRect(0, H/2 - 48, W, 96);
+
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(0, H/2 - 40);
-    ctx.lineTo(W, H/2 - 40);
-    ctx.moveTo(0, H/2 + 40);
-    ctx.lineTo(W, H/2 + 40);
+    ctx.moveTo(0, H/2 - 48);
+    ctx.lineTo(W, H/2 - 48);
+    ctx.moveTo(0, H/2 + 48);
+    ctx.lineTo(W, H/2 + 48);
     ctx.stroke();
-    
-    ctx.fillStyle = '#ffce54'; // Golden award color
-    ctx.font = '700 20px "Space Grotesk", sans-serif';
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(pointMessage.toUpperCase(), W/2, H/2);
+
+    // rally result — why the point ended
+    ctx.fillStyle = 'rgba(248, 250, 252, 0.9)';
+    ctx.font = '700 16px "Space Grotesk", sans-serif';
+    ctx.fillText(rallyResultLabel, W/2, H/2 - 15);
+
+    // who scored — existing gold headline style, unchanged
+    ctx.fillStyle = '#ffce54';
+    ctx.font = '700 20px "Space Grotesk", sans-serif';
+    ctx.fillText(pointMessage.toUpperCase(), W/2, H/2 + 15);
+
+    ctx.restore();
   }
 
   function drawParticles() {

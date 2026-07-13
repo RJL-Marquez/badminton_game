@@ -1,0 +1,6 @@
+{
+  "name": "Rally — 2D Badminton",
+  "description": "A beautifully polished 2D local multiplayer and single-player badminton game.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Rally — 2D Badminton</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -51,10 +55,7 @@
   html, body {
     margin: 0;
     height: 100%;
-    background: 
-      radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
-      radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.08) 0%, transparent 45%),
-      var(--ink);
+    background: var(--ink);
     font-family: 'Plus Jakarta Sans', sans-serif;
     color: var(--paper);
     display: flex;
@@ -64,10 +65,45 @@
     transition: background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
+  /* #stage is the "monitor" the Resolution setting sizes — it carries the decorative
+     gradient backdrop and is what actually grows/shrinks when a resolution preset is
+     picked. #wrap (the real game: title/canvas/footer) sits centered inside it at a
+     FIXED natural size/aspect ratio and never changes size because of a resolution
+     pick — only adjustScale()'s own fit-to-the-real-browser-window logic (see JS) can
+     shrink it, and only far enough to keep it fully visible, never to grow it. This is
+     the split the resolution setting now draws: resolution resizes the surrounding
+     canvas/backdrop only, gameplay itself stays fixed. */
+  #stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 45%),
+      radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.08) 0%, transparent 45%),
+      var(--ink);
+    transition: width 0.25s ease, height 0.25s ease, background 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
   #wrap {
     position: relative;
     width: 1300px;
-    max-width: 100vw;
+    /* NOTE: intentionally no max-width here. #wrap must always lay out at its
+       full, fixed 1300px design width so its natural height (and every child's
+       proportions) come out matching the intended aspect ratio. adjustScale()
+       in the JS below is what shrinks the whole thing to fit small windows —
+       it measures this natural box and applies a single uniform
+       transform: scale(...), which keeps width and height shrinking together.
+       A max-width here would let the *browser* clamp #wrap's width on narrow
+       windows before JS ever runs, reflowing its contents (e.g. the menu's
+       left/right columns) at a narrower width while height stays governed by
+       other fixed-size content — squishing panels like the stadium preview
+       out of proportion instead of scaling them down uniformly. Any
+       momentary overflow before adjustScale() runs on load is invisible
+       because the page's overflow is hidden. */
     animation: fadeInWrap 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
   @keyframes fadeInWrap {
@@ -515,6 +551,181 @@
     display: none !important;
   }
 
+  /* ---- Phase 5: Play Online / Join Lobby / Waiting Room ------------------- */
+  .onlineFieldRow {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 280px;
+    margin-bottom: 6px;
+  }
+  .onlineFieldLabel {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+  }
+  .onlineTextInput {
+    font-family: 'Space Grotesk', sans-serif;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1.5px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: #fff;
+    font-size: 16px;
+    outline: none;
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .onlineTextInput:focus {
+    border-color: var(--accent);
+    background: rgba(255, 255, 255, 0.09);
+  }
+  .onlineTextInput.codeInput {
+    letter-spacing: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 22px;
+    text-align: center;
+    text-transform: uppercase;
+  }
+  .onlineTextInput::placeholder { color: rgba(255,255,255,0.25); letter-spacing: 2px; }
+
+  .onlineActionBtn {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent) 0%, #ff1c40 100%);
+    border: none;
+    border-radius: 8px;
+    padding: 12px 26px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    text-transform: uppercase;
+    width: 100%;
+    max-width: 280px;
+  }
+  .onlineActionBtn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.12); }
+  .onlineActionBtn:active:not(:disabled) { transform: translateY(0); }
+  .onlineActionBtn:disabled { opacity: 0.35; cursor: not-allowed; filter: grayscale(0.6); }
+  .onlineActionBtn.secondary {
+    background: rgba(255,255,255,0.08);
+    border: 1.5px solid rgba(255,255,255,0.18);
+  }
+  .onlineActionBtn.danger {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1.5px solid rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+  }
+
+  .onlineStatusLine {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    color: rgba(255,255,255,0.45);
+    min-height: 16px;
+  }
+  .onlineStatusLine.error { color: #f87171; }
+  .onlineStatusLine.ok { color: #34d399; }
+
+  .roomCodeBlock {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 4px;
+  }
+  .roomCodeDisplay {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 10px;
+    color: #fff;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid rgba(255,255,255,0.18);
+    border-radius: 8px;
+    padding: 8px 18px;
+  }
+  .roomCopyBtn {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--accent);
+    background: transparent;
+    border: 1.5px solid var(--accent);
+    border-radius: 6px;
+    padding: 8px 12px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s ease;
+  }
+  .roomCopyBtn:hover { background: var(--accent); color: #fff; }
+  .roomCopyBtn.copied { border-color: #34d399; color: #34d399; }
+
+  .pingIndicator {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    letter-spacing: 0.5px;
+  }
+
+  .playerSlotsCol {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 320px;
+    margin: 6px 0 10px 0;
+  }
+  .playerSlotCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1.5px solid rgba(255,255,255,0.1);
+  }
+  .playerSlotCard.filled { border-color: rgba(255,255,255,0.2); }
+  .playerSlotCard.readyState { border-color: rgba(52, 211, 153, 0.55); background: rgba(52, 211, 153, 0.07); }
+  .playerSlotName {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .playerSlotName .empty { color: rgba(255,255,255,0.3); font-weight: 500; font-style: italic; }
+  .playerSlotStatus {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    text-transform: uppercase;
+  }
+  .playerSlotStatus.ready { background: rgba(52, 211, 153, 0.18); color: #34d399; }
+  .playerSlotStatus.notReady { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.4); }
+  .hostBadgeSmall {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    background: rgba(255, 184, 0, 0.18);
+    color: var(--accent2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
   .swatchRow {
     display: flex;
     gap: 10px;
@@ -554,6 +765,44 @@
   @keyframes keybindPulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.45; }
+  }
+
+  .keybindList {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .keybindGroupLabel {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin: 6px 0 2px;
+    width: 100%;
+  }
+  .keybindGroupLabel.p1 { color: var(--left-color); }
+  .keybindGroupLabel.p2 { color: var(--right-color); }
+
+  .controlsTabRow {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .controlsTabPanel.hidden {
+    display: none !important;
+  }
+
+  .keybindHint {
+    font-size: 10.5px;
+    color: rgba(255, 255, 255, 0.35);
+    letter-spacing: 0.3px;
+    margin: -2px 0 4px;
+    width: 100%;
   }
 
   .versionLabel {
@@ -745,6 +994,17 @@
     box-shadow: 0 6px 15px rgba(0,0,0,0.2);
   }
 
+  /* Pause menu: force every button to the same width so the list reads as one
+     clean stack, while Resume keeps the bold gradient (.gameBtn) that makes it
+     stand out from the secondary (outline-style) buttons below it. */
+  .pausePanel {
+    min-width: 320px;
+  }
+  .pausePanel button.gameBtn {
+    width: 100%;
+    white-space: nowrap;
+  }
+
 
 
   #backToMode {
@@ -849,22 +1109,47 @@
     box-shadow: 0 0 0 1px var(--accent);
   }
 
-  .backLink {
-    align-self: flex-start;
+  .tabOption {
     font-family: 'Space Grotesk', sans-serif;
     font-size: 11px;
     font-weight: 700;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .tabOption:hover { color: #fff; border-color: rgba(255, 255, 255, 0.3); }
+  .tabOption.active {
+    color: #fff;
+    background: rgba(255, 79, 107, 0.18);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .backLink {
+    align-self: flex-start;
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    opacity: 0.55;
+    opacity: 0.7;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    padding: 6px 10px;
+    margin-left: -10px;
+    border-radius: 8px;
     transition: all 0.2s;
     margin-bottom: 6px;
   }
-  .backLink:hover { opacity: 1; transform: translateX(-3px); color: var(--accent); }
+  .backLink svg { width: 20px; height: 20px; }
+  .backLink:hover { opacity: 1; transform: translateX(-3px); color: var(--accent); background: rgba(255,255,255,0.06); }
 
   .cardGrid {
     display: grid;
@@ -1450,9 +1735,194 @@
     letter-spacing: 1.5px;
     font-size: 14px;
   }
+
+  /* ================= MOBILE TOUCH CONTROLS ================= */
+  /* Deliberately siblings of #wrap (not inside it) — #wrap is resized with a CSS
+     transform: scale(...) by adjustScale(), and position:fixed descendants of a
+     transformed ancestor get scaled along with it (a CSS quirk), which would make
+     these buttons shrink/grow with the game's internal scale instead of staying a
+     comfortable, consistent physical touch-target size. Living outside #wrap keeps
+     them anchored to the real viewport regardless of how the game itself is scaled. */
+  #touchControls {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    pointer-events: none; /* only the buttons themselves are interactive */
+    display: none;
+    font-family: 'Space Grotesk', sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  #touchControls.visible { display: block; }
+
+  .touchCluster {
+    position: absolute;
+    bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    pointer-events: none;
+  }
+  #touchLeftCluster { left: calc(18px + env(safe-area-inset-left, 0px)); }
+  #touchRightCluster { right: calc(18px + env(safe-area-inset-right, 0px)); }
+
+  .touchBtn {
+    pointer-events: auto;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(10, 15, 30, 0.55);
+    border: 2px solid rgba(255, 255, 255, 0.28);
+    color: #f8fafc;
+    font-size: 22px;
+    font-weight: 700;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    backdrop-filter: blur(6px);
+    transition: transform 0.1s ease, background 0.1s ease, border-color 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+    padding: 0;
+  }
+  .touchBtn:active, .touchBtn.pressed {
+    transform: scale(0.9);
+    background: rgba(255, 79, 107, 0.35);
+    border-color: rgba(255, 79, 107, 0.7);
+  }
+  .touchJumpBtn { font-size: 20px; opacity: 0.9; }
+  .touchHitBtn {
+    width: 84px;
+    height: 84px;
+    font-size: 14px;
+    letter-spacing: 1.5px;
+    background: rgba(255, 79, 107, 0.22);
+    border-color: rgba(255, 79, 107, 0.55);
+  }
+  .touchHitBtn.pressed {
+    background: linear-gradient(135deg, var(--accent) 0%, #ff1c40 100%);
+    border-color: #fff;
+    box-shadow: 0 0 24px rgba(255, 79, 107, 0.55);
+  }
+  .touchAngleBtn {
+    width: 50px;
+    height: 50px;
+    font-size: 18px;
+    opacity: 0.85;
+  }
+  .touchAngleBtn.hidden { display: none; }
+
+  /* Shared style for the small fixed corner buttons (fullscreen, pause). Both are
+     position:fixed and siblings of #wrap (see the comment above #touchControls) —
+     they live at a fixed spot on the real viewport at all times, deliberately
+     willing to overlap the game canvas underneath rather than shove content
+     around or move as the game scales/resizes. */
+  .touchCornerBtn {
+    display: none;
+    position: fixed;
+    top: calc(14px + env(safe-area-inset-top, 0px));
+    z-index: 600;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: rgba(10, 15, 30, 0.6);
+    border: 1.5px solid rgba(255, 255, 255, 0.25);
+    color: #f8fafc;
+    font-size: 18px;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    padding: 0;
+    cursor: pointer;
+  }
+  .touchCornerBtn.visible { display: flex; }
+  .touchCornerBtn:active { transform: scale(0.92); background: rgba(255, 79, 107, 0.35); }
+
+  #touchFullscreenBtn { right: calc(14px + env(safe-area-inset-right, 0px)); }
+  #touchPauseBtn { left: calc(14px + env(safe-area-inset-left, 0px)); font-size: 16px; }
+
+  .iosHint {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 700;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(3, 4, 10, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .iosHint.visible { display: flex; }
+  .iosHintCard {
+    background: var(--panel-bg, #12151f);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 18px;
+    padding: 24px 22px;
+    max-width: 340px;
+    width: 100%;
+    text-align: left;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .iosHintTitle {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+    margin-bottom: 10px;
+  }
+  .iosHintBody {
+    font-size: 12.5px;
+    line-height: 1.5;
+    opacity: 0.75;
+    margin-bottom: 14px;
+  }
+  .iosHintSteps {
+    font-size: 12.5px;
+    line-height: 1.7;
+    opacity: 0.9;
+    margin: 0 0 18px 0;
+    padding-left: 18px;
+  }
+  .iosShareGlyph {
+    display: inline-block;
+    padding: 1px 6px;
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 5px;
+    font-size: 11px;
+    margin: 0 2px;
+  }
+  .iosHintCloseBtn {
+    width: 100%;
+    padding: 11px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent, #ff4f6b);
+    color: #fff;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 1px;
+    cursor: pointer;
+  }
+  .iosHintCloseBtn:active { transform: scale(0.97); }
+
+  /* On narrow/short (landscape phone) viewports, pull the clusters in a touch and
+     shrink them slightly so they never overlap the score strip or run off-screen. */
+  @media (max-height: 480px) {
+    .touchCluster { bottom: calc(8px + env(safe-area-inset-bottom, 0px)); gap: 10px; }
+    .touchBtn { width: 52px; height: 52px; font-size: 18px; }
+    .touchHitBtn { width: 68px; height: 68px; }
+    .touchAngleBtn { width: 42px; height: 42px; font-size: 15px; }
+  }
 </style>
 </head>
 <body>
+<div id="stage">
 <div id="wrap">
   <div id="titleRow">
     <h1>
@@ -1502,7 +1972,8 @@
           <div id="mainMenuOptions" class="textMenu">
             <button class="menuTextLink" id="btnAI">PLAY VS AI</button>
             <button class="menuTextLink" id="btn2p">LOCAL MULTIPLAYER</button>
-            <button class="menuTextLink disabled" disabled>ONLINE MULTIPLAYER <span class="soonBadge">SOON</span></button>
+            <button class="menuTextLink" id="btnAIvAI">AI VS AI</button>
+            <button class="menuTextLink" id="btnOnline">ONLINE MULTIPLAYER</button>
             <button class="menuTextLink" id="btnOptions">SETTINGS</button>
           </div>
 
@@ -1512,7 +1983,61 @@
             <button class="menuTextLink diffBtn" data-diff="easy" style="--hover-color: #10b981;">EASY</button>
             <button class="menuTextLink diffBtn" data-diff="medium" style="--hover-color: var(--accent2);">MEDIUM</button>
             <button class="menuTextLink diffBtn" data-diff="hard" style="--hover-color: #ef4444;">HARD</button>
+            <button class="menuTextLink diffBtn" data-diff="expert" style="--hover-color: #a855f7;">EXPERT</button>
             <button class="menuTextLink backLinkBtn" id="btnDiffBack">← BACK TO MAIN MENU</button>
+          </div>
+
+          <!-- Phase 5: Play Online — Host or Join -->
+          <div id="onlineMenuOptions" class="textMenu hidden">
+            <h3 class="submenuTitle">Play Online</h3>
+            <div class="onlineFieldRow">
+              <label class="onlineFieldLabel" for="onlineNameInput">Your Name</label>
+              <input type="text" id="onlineNameInput" class="onlineTextInput" placeholder="Player" maxlength="16" autocomplete="off">
+            </div>
+            <button class="onlineActionBtn" id="btnHostLobby">Host Lobby</button>
+            <button class="onlineActionBtn secondary" id="btnGoJoinLobby">Join Lobby</button>
+            <div class="onlineStatusLine" id="onlineMenuStatus"></div>
+            <button class="menuTextLink backLinkBtn" id="btnOnlineBack">← BACK TO MAIN MENU</button>
+          </div>
+
+          <!-- Phase 5: Join Lobby — enter a room code -->
+          <div id="joinLobbyOptions" class="textMenu hidden">
+            <h3 class="submenuTitle">Join Lobby</h3>
+            <div class="onlineFieldRow">
+              <label class="onlineFieldLabel" for="joinCodeInput">Room Code</label>
+              <input type="text" id="joinCodeInput" class="onlineTextInput codeInput" placeholder="ABCDXY" maxlength="6" autocomplete="off">
+            </div>
+            <button class="onlineActionBtn" id="btnJoinLobbySubmit">Join</button>
+            <div class="onlineStatusLine" id="joinLobbyStatus"></div>
+            <button class="menuTextLink backLinkBtn" id="btnJoinLobbyBack">← BACK</button>
+          </div>
+
+          <!-- Phase 5: Waiting Room -->
+          <div id="waitingRoomOptions" class="textMenu hidden">
+            <div id="waitingRoomLobbyView">
+              <h3 class="submenuTitle">Waiting Room</h3>
+              <div class="roomCodeBlock">
+                <div class="roomCodeDisplay" id="waitingRoomCode">------</div>
+                <button class="roomCopyBtn" id="btnCopyRoomCode">Copy Code</button>
+              </div>
+              <div class="pingIndicator" id="waitingRoomPing">Ping: — ms</div>
+              <div class="playerSlotsCol" id="waitingRoomSlots"><!-- filled by JS --></div>
+              <button class="onlineActionBtn" id="btnToggleReady">Ready</button>
+              <button class="onlineActionBtn secondary" id="btnHostStart" style="display:none;">Start Match</button>
+              <div class="onlineStatusLine" id="waitingRoomStatus"></div>
+              <button class="menuTextLink backLinkBtn danger" id="btnLeaveLobby">← LEAVE LOBBY</button>
+            </div>
+            <div id="waitingRoomMatchStartedView" class="hidden">
+              <h3 class="submenuTitle">Match Starting</h3>
+              <div class="onlineStatusLine ok" style="font-size:14px; margin-bottom:14px;">
+                Both players ready — the server has started the match.
+              </div>
+              <div class="onlineStatusLine" style="margin-bottom:18px;">
+                Synced online gameplay (rendering the live match) lands in a later phase —
+                this build only covers connecting, lobbies, and room codes.
+              </div>
+              <button class="menuTextLink backLinkBtn" id="btnMatchStartedBack">← BACK TO MAIN MENU</button>
+            </div>
           </div>
 
           <!-- Container 3: Options Selection (Initially Hidden) -->
@@ -1536,9 +2061,9 @@
             <div class="menuSettingRow">
               <div class="menuSettingLabel">Resolution</div>
               <div class="swatchRow">
-                <button class="resOption active" data-res="auto" title="Fit current window">AUTO</button>
-                <button class="resOption" data-res="1366x768" title="1366 × 768">1366×768</button>
-                <button class="resOption" data-res="1920x1080" title="1920 × 1080">1920×1080</button>
+                <button class="resOption active" data-res="auto" title="Backdrop fills the current window — gameplay size is unaffected">AUTO</button>
+                <button class="resOption" data-res="1366x768" title="Backdrop sized to 1366 × 768 — gameplay size is unaffected">1366×768</button>
+                <button class="resOption" data-res="1920x1080" title="Backdrop sized to 1920 × 1080 — gameplay size is unaffected">1920×1080</button>
               </div>
             </div>
 
@@ -1547,28 +2072,90 @@
               <button class="menuTextLink inlineTextBtn" id="btnAdvancedControls" title="Enable Advanced Controls — manual attack angle for human players">OFF</button>
             </div>
 
-            <div class="menuSettingRow" style="flex-direction:column; align-items:flex-start; gap:8px;">
-              <div class="menuSettingLabel" style="min-width:0;">Attack Angle Keys</div>
-              <div class="keybindRow">
-                <span class="keybindActionLabel">P1 Angle Up</span>
-                <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p1AngleUp">Q</button>
-              </div>
-              <div class="keybindRow">
-                <span class="keybindActionLabel">P1 Angle Down</span>
-                <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p1AngleDown">E</button>
-              </div>
-              <div class="keybindRow">
-                <span class="keybindActionLabel">P2 Angle Up</span>
-                <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p2AngleUp">U</button>
-              </div>
-              <div class="keybindRow">
-                <span class="keybindActionLabel">P2 Angle Down</span>
-                <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p2AngleDown">O</button>
-              </div>
-              <button class="menuTextLink inlineTextBtn" id="btnResetKeybinds" style="font-size:11px !important; opacity:0.6;">RESET TO DEFAULTS</button>
+            <div class="menuSettingRow">
+              <div class="menuSettingLabel">Customize Controls</div>
+              <button class="menuTextLink inlineTextBtn" id="btnCustomizeControls" title="Remap movement, jump, hit and attack-angle keys">BUTTON MAPPING</button>
             </div>
 
             <button class="menuTextLink backLinkBtn" id="btnOptionsBack">← BACK TO MAIN MENU</button>
+          </div>
+
+          <!-- Container 4: Customize Controls (Initially Hidden) -->
+          <div id="controlsMenuOptions" class="textMenu hidden">
+            <h3 class="submenuTitle" style="margin-bottom: 12px;">Customize Controls</h3>
+
+            <div class="controlsTabRow">
+              <button class="tabOption controlsTabBtn active" data-tab="basic">BASIC</button>
+              <button class="tabOption controlsTabBtn" data-tab="advanced">ADVANCED</button>
+            </div>
+
+            <div id="basicControlsPanel" class="controlsTabPanel">
+              <div class="keybindList">
+                <div class="keybindGroupLabel p1">Player 1</div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">Move Left</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p1Left">A</button>
+                </div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">Move Right</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p1Right">D</button>
+                </div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">Jump / Smash</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p1Jump">W</button>
+                </div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">Hit (Hold to Charge)</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p1Hit">SPACE</button>
+                </div>
+
+                <div class="keybindGroupLabel p2">Player 2</div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">Move Left</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p2Left">LEFT</button>
+                </div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">Move Right</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p2Right">RIGHT</button>
+                </div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">Jump / Smash</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p2Jump">UP</button>
+                </div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">Hit (Hold to Charge)</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p2Hit">ENTER</button>
+                </div>
+
+                <button class="menuTextLink inlineTextBtn" id="btnResetBasicKeybinds" style="font-size:11px !important; opacity:0.6; margin-top:6px;">RESET TO DEFAULTS</button>
+              </div>
+            </div>
+
+            <div id="advancedControlsPanel" class="controlsTabPanel hidden">
+              <div class="keybindHint">Only active in-game while Settings → Advanced Controls is ON</div>
+              <div class="keybindList">
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">P1 Angle Up</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p1AngleUp">Q</button>
+                </div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">P1 Angle Down</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p1AngleDown">E</button>
+                </div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">P2 Angle Up</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p2AngleUp">U</button>
+                </div>
+                <div class="keybindRow">
+                  <span class="keybindActionLabel">P2 Angle Down</span>
+                  <button class="menuTextLink inlineTextBtn keybindBtn" data-action="p2AngleDown">O</button>
+                </div>
+
+                <button class="menuTextLink inlineTextBtn" id="btnResetAdvancedKeybinds" style="font-size:11px !important; opacity:0.6; margin-top:6px;">RESET TO DEFAULTS</button>
+              </div>
+            </div>
+
+            <button class="menuTextLink backLinkBtn" id="btnControlsBack">← BACK TO SETTINGS</button>
           </div>
         </div>
         
@@ -1576,13 +2163,13 @@
         <div class="compactControlsInfo">
           <div class="infoGroup">
             <span class="playerTitle p1">P1 CONTROLS</span>
-            <span>A/D: Move • W: Jump/Smash</span>
-            <span>Space: Hold to Charge Hit</span>
+            <span id="p1MoveHint">A/D: Move • W: Jump/Smash</span>
+            <span id="p1HitHint">Space: Hold to Charge Hit</span>
           </div>
           <div class="infoGroup" style="text-align: right;">
             <span class="playerTitle p2">P2 CONTROLS</span>
-            <span>←/→: Move • ↑: Jump/Smash</span>
-            <span>Enter: Hold to Charge Hit</span>
+            <span id="p2MoveHint">←/→: Move • ↑: Jump/Smash</span>
+            <span id="p2HitHint">Enter: Hold to Charge Hit</span>
           </div>
         </div>
       </div>
@@ -1757,12 +2344,14 @@
     </div>
 
     <div id="pauseOverlay" class="overlay hidden">
-      <div class="panel">
+      <div class="panel pausePanel">
         <h2>⏸ Game Paused</h2>
         <p class="subtle" style="margin-top:-6px;">Press Esc to resume</p>
         <button class="gameBtn" id="resumeBtn">Resume</button>
         <button class="gameBtn secondary" id="pauseRestartBtn">↻ Restart Match</button>
-        <button class="gameBtn secondary" id="mainMenuBtn">⌂ Main Menu</button>
+        <button class="gameBtn secondary" id="pauseChangeCharBtn">👤 Change Characters</button>
+        <button class="gameBtn secondary" id="pauseSettingsBtn">⚙ Settings</button>
+        <button class="gameBtn secondary" id="mainMenuBtn">⌂ Return to Main Menu</button>
       </div>
     </div>
   </div>
@@ -1773,6 +2362,62 @@
   </div>
   <div id="creditRow">Created by: Rence Joseph Marquez</div>
 </div>
+</div>
+
+<!-- Mobile touch controls — siblings of #wrap on purpose, see the CSS comment above
+     #touchControls for why. Movement + jump sit under the left thumb, hit (and, in
+     Advanced Controls, the attack-angle buttons flanking it) sit under the right thumb. -->
+<div id="touchControls">
+  <div id="touchLeftCluster" class="touchCluster">
+    <button id="touchMoveLeft" class="touchBtn" aria-label="Move left">◀</button>
+    <button id="touchJump" class="touchBtn touchJumpBtn" aria-label="Jump / Smash">▲</button>
+    <button id="touchMoveRight" class="touchBtn" aria-label="Move right">▶</button>
+  </div>
+  <div id="touchRightCluster" class="touchCluster">
+    <button id="touchAngleUp" class="touchBtn touchAngleBtn hidden" aria-label="Angle up">▲</button>
+    <button id="touchHit" class="touchBtn touchHitBtn" aria-label="Hold to charge, release to hit">HIT</button>
+    <button id="touchAngleDown" class="touchBtn touchAngleBtn hidden" aria-label="Angle down">▼</button>
+  </div>
+</div>
+<button id="touchPauseBtn" class="touchCornerBtn" aria-label="Pause">⏸</button>
+<button id="touchFullscreenBtn" class="touchCornerBtn" aria-label="Toggle fullscreen">⛶</button>
+
+<!-- iPhone/iPod Safari has no Fullscreen API for regular pages at all (WebKit only
+     supports it for <video>), so tapping fullscreen there can never truly go
+     fullscreen no matter what JS does. This hint guides the player to the one thing
+     that actually works on iOS: installing the page as a Home Screen app (already
+     enabled by the apple-mobile-web-app meta tags above), which launches with zero
+     Safari chrome. Siblings of #wrap for the same reason as the corner buttons —
+     stays fixed to the real viewport regardless of game scale. -->
+<div id="iosFullscreenHint" class="iosHint">
+  <div class="iosHintCard">
+    <div class="iosHintTitle">Safari blocks in-page fullscreen on iPhone</div>
+    <div class="iosHintBody">Install GOODMINTON to your Home Screen for the real thing — it opens with no browser bar at all:</div>
+    <ol class="iosHintSteps">
+      <li>Tap the <b>Share</b> icon <span class="iosShareGlyph">⎋</span> in Safari's toolbar</li>
+      <li>Choose <b>Add to Home Screen</b></li>
+      <li>Launch GOODMINTON from your Home Screen icon</li>
+    </ol>
+    <button id="iosHintCloseBtn" class="iosHintCloseBtn">GOT IT</button>
+  </div>
+</div>
+
+<!-- Phase 5: shared wire protocol + serialization + browser transport. These are
+     the exact same files the dedicated server (server/index.js) uses, loaded here
+     as plain UMD <script>s so window.Protocol / window.Serialization / window.NetClient
+     exist for the main game script below. Only meaningful when this page is actually
+     served BY server/index.js (npm start in server/) — a bare double-clicked
+     index.html has no server to open a socket to, same as any other online feature. -->
+<!-- Phase 8: the headless authoritative simulation itself, loaded here so the
+     client can re-run its OWN movement math (Sim.updatePlayer/tryJump/applyDash)
+     for client-side prediction — see beginOnlineMatch/stepOnlinePrediction below.
+     shared/constants.js must load first: shared/simulation.js's UMD factory reads
+     window.GameConstants at load time. -->
+<script src="shared/constants.js"></script>
+<script src="shared/simulation.js"></script>
+<script src="shared/protocol.js"></script>
+<script src="shared/serialization.js"></script>
+<script src="client/net/NetClient.js"></script>
 
 <script>
 (function(){
@@ -1783,9 +2428,14 @@
   // ---------- centralized version ----------
   // Single source of truth for the game version — see VERSIONING.md.
   // The Main Menu version label reads this value; nowhere else should hardcode it.
-  const GAME_VERSION = '1.3.0';
+  const GAME_VERSION = '2.4.0';
   const versionLabelEl = document.getElementById('versionLabel');
   if(versionLabelEl) versionLabelEl.textContent = 'Version ' + GAME_VERSION;
+
+  // Phase 8: short alias for window.Simulation (shared/simulation.js's UMD global) —
+  // the headless authoritative movement math this client re-runs for local-player
+  // prediction. See beginOnlineMatch/stepOnlinePrediction/reconcileLocalPrediction.
+  const Sim = Simulation;
 
   const GROUND_Y = 620;
   const SCORE_STRIP_H = 54;      // fixed header strip height, independent of court size
@@ -1802,10 +2452,14 @@
   // (the body of the net) is a clean fault instead. NET_TAPE_BAND is how many px below
   // NET_TOP still count as the tape rather than the net's body.
   const NET_TAPE_BAND = 14;          // px of net height (out of NET_HEIGHT) treated as the tape
-  const NET_CORD_CREEP_SPEED = 70;   // px/s the shuttle keeps moving forward after a tape clip —
-                                      // small and fixed regardless of how hard it was hit, so
-                                      // every cord shot "loses most of its momentum" the same way
+  const NET_CORD_CREEP_SPEED = 70;   // px/s minimum/baseline speed for low-power net clips
   const NET_CORD_BOUNCE_VY = -90;    // small upward kick off the tape before gravity takes back over
+  
+  // Enhanced net collision: energy retention based on incoming momentum
+  // The net absorbs significant energy, but remaining momentum varies with shot power
+  const NET_ENERGY_RETENTION = 0.3;  // 30% of incoming kinetic energy survives the net
+  const NET_MIN_POST_SPEED = 40;     // minimum speed after net collision (very soft clips)
+  const NET_MAX_POST_SPEED = 320;    // maximum speed after net collision (full-power clips)
 
   const PLAYER_W = 40, PLAYER_H = 70;
   const MOVE_SPEED = 300;
@@ -1823,6 +2477,12 @@
                                     // can dash now, only how FAR it goes differs
   const PLAYER_GRAVITY = 1500;
   const JUMP_VELOCITY = -560;
+  // seconds from leaving the ground to the apex of a jump — the AI uses this to time jump
+  // smashes: it simulates the shuttle's actual flight forward (predictShuttleTimeToY) and
+  // leaves the ground when the time remaining until the shuttle reaches a good contact
+  // height is about equal to this, so it rises to meet the shuttle instead of jumping on
+  // a same-frame reactive check that was consistently early or late.
+  const JUMP_PEAK_TIME = -JUMP_VELOCITY / PLAYER_GRAVITY;
 
   const SHUTTLE_RADIUS = 5.5;
   // below this speed² (px/s, squared to skip a sqrt), the shuttle's visual rotation just
@@ -1973,19 +2633,19 @@
     {id:'maya',   name:'Maya',   skin:'#c68863', hair:'#1b1b1b', hairStyle:'bun',      shirt:'#1f8a8c', shirt2:'#eafffb', shorts:'#123f40', shoe:'#e9e4d8',
       stats:{speed:3, power:3, control:5}, tagline:'Precision over power — rarely misses her spot.'},
     {id:'jordan', name:'Jordan', skin:'#f0c9a0', hair:'#5a3b23', hairStyle:'short',    shirt:'#2b3a67', shirt2:'#ff9d3d', shorts:'#1c2745', shoe:'#f2ede1',
-      stats:{speed:2, power:5, control:2}, tagline:'Every swing is meant to end the rally.'},
+      stats:{speed:2, power:5, control:3}, tagline:'Every swing is meant to end the rally.'},
     {id:'kenji',  name:'Kenji',  skin:'#e8b892', hair:'#161513', hairStyle:'spiky',    shirt:'#b5222c', shirt2:'#161513', shorts:'#161513', shoe:'#e9e4d8',
-      stats:{speed:5, power:2, control:3}, tagline:'Outruns the shuttle before he outhits it.'},
+      stats:{speed:5, power:2, control:4}, tagline:'Outruns the shuttle before he outhits it.'},
     {id:'amara',  name:'Amara',  skin:'#6b4226', hair:'#161513', hairStyle:'braids',   shirt:'#6a2ba8', shirt2:'#f2c94c', shorts:'#3a1660', shoe:'#f2ede1',
       stats:{speed:2, power:2, control:5}, tagline:'Wins with placement, not force.'},
     {id:'sofia',  name:'Sofia',  skin:'#f4d9c6', hair:'#d9b46a', hairStyle:'ponytail', shirt:'#ff6f9c', shirt2:'#ffffff', shorts:'#7a2a44', shoe:'#f2ede1',
-      stats:{speed:4, power:2, control:4}, tagline:'Quick and clean, but light on power.'},
+      stats:{speed:4, power:2, control:5}, tagline:'Quick and clean, but light on power.'},
     {id:'diego',  name:'Diego',  skin:'#d99a66', hair:'#20140d', hairStyle:'short',    shirt:'#3fae49', shirt2:'#f2e94c', shorts:'#1d4a20', shoe:'#e9e4d8',
-      stats:{speed:3, power:5, control:2}, tagline:'Raw strength off every swing, rough around the edges.'},
+      stats:{speed:3, power:5, control:3}, tagline:'Raw strength off every swing, rough around the edges.'},
     {id:'priya',  name:'Priya',  skin:'#a8714a', hair:'#161513', hairStyle:'long',     shirt:'#e0562d', shirt2:'#2b3a67', shorts:'#5c2413', shoe:'#f2ede1',
-      stats:{speed:5, power:4, control:1}, tagline:'Blazing and heavy-handed — and reckless with it.'},
+      stats:{speed:5, power:4, control:2}, tagline:'Blazing and heavy-handed — and reckless with it.'},
     {id:'liam',   name:'Liam',   skin:'#f0d5b8', hair:'#a5471f', hairStyle:'short',    shirt:'#5c6770', shirt2:'#3f7cff', shorts:'#2c333a', shoe:'#f2ede1',
-      stats:{speed:3, power:4, control:4}, tagline:'Well-rounded, with real punch behind it.'}
+      stats:{speed:3, power:4, control:5}, tagline:'Well-rounded, with real punch behind it.'}
   ];
 
   // small tuning helpers so a character's stats actually change how they play —
@@ -2002,6 +2662,17 @@
   // speed: a max-speed (5) character now moves/dashes ~28% faster than neutral, a
   // min-speed (1) character ~28% slower — roughly double the old spread
   function speedMultFor(ch){ return statMult(ch && ch.stats && ch.stats.speed, 0.10, 0.02); }
+  // charge speed: the Speed stat also controls how quickly a player winds up a hit —
+  // a max-speed (5) character reaches full charge noticeably faster than neutral, a
+  // min-speed (1) character noticeably slower, so Speed stays useful even for players who
+  // favor timing/power over movement. Same statMult() curve as the other stats (own
+  // coefficients so it can be balanced independently of movement speed).
+  const CHARGE_SPEED_LINEAR = 0.13;
+  const CHARGE_SPEED_KICKER = 0.03;
+  function chargeSpeedMultFor(ch){ return statMult(ch && ch.stats && ch.stats.speed, CHARGE_SPEED_LINEAR, CHARGE_SPEED_KICKER); }
+  // the actual time (seconds) this character needs to hold a charge to reach 100% —
+  // higher Speed shrinks it below MAX_CHARGE_TIME, lower Speed stretches it beyond
+  function chargeTimeFor(ch){ return MAX_CHARGE_TIME / chargeSpeedMultFor(ch); }
   // power: a max-power (5) character now hits serves/clears/smashes ~36% harder than
   // neutral, a min-power (1) character ~36% softer — the shuttle itself visibly flies
   // faster off a high-power character's racket. Smashes ALWAYS use this full-strength
@@ -2127,9 +2798,29 @@
 
   let servingSide = 'left';
   let lastHitBy = null; // 'left' | 'right' — who last touched the shuttle (for out-of-bounds faults)
-  let mode = '2p'; // '2p' | 'ai' — AI always controls the right player
+  let mode = '2p'; // '2p' | 'ai' | 'aivai' — 'ai' puts AI on the right player only,
+                   // 'aivai' puts AI on BOTH players (spectator/validation mode)
   let aiDifficulty = 'medium';
+  let aiDebugEnabled = false; // F3 toggles the on-canvas AI debug overlay (AI modes only)
   let paused = false;
+
+  // ---------- Phase 6: online multiplayer match state ----------
+  // Non-null from beginOnlineMatch() through the end of the online session —
+  // including the post-match victory screen AND the Phase 9 rematch waiting
+  // room (the same `net` connection/side carries over match to match), until
+  // the player actually leaves (goToMainMenu() or the waiting room's Leave
+  // Lobby button, both of which null it out). Everything gameplay-related
+  // in loop() and the keyboard handlers branches off THIS instead of `mode`, so every
+  // existing local single-player/AI code path is completely untouched when it's null.
+  // Shape: { net, mySide, lastTapTime:{left,right}, lastDashSentTime, pendingJump,
+  //          pendingDash, charging, inputSeq, gameOverShown }
+  let onlineMatch = null;
+
+  // Phase 9: set by the Phase 5 lobby IIFE below (the only place with the live
+  // NetClient + Waiting Room DOM in scope) so the game-over "Play Again" button,
+  // defined further down, can trigger a rematch request without needing its own
+  // copy of that connection/UI plumbing.
+  let requestOnlineRematch = function(){ /* replaced once the lobby IIFE runs */ };
 
   // ---------- advanced controls: manual attack angle ----------
   // AdvancedControlSettings — master toggle for the whole feature set. AI players never
@@ -2151,12 +2842,20 @@
     return Math.max(ATTACK_ANGLE_MIN, Math.min(ATTACK_ANGLE_MAX, deg));
   }
 
-  // InputBindings — the four attack-angle actions are looked up by code here rather than
-  // hardcoded in the keydown listener, so they can be rebound from Settings at runtime.
-  const DEFAULT_KEY_BINDINGS = { p1AngleUp:'KeyQ', p1AngleDown:'KeyE', p2AngleUp:'KeyU', p2AngleDown:'KeyO' };
+  // InputBindings — every human-facing action (basic movement/jump/hit plus the advanced
+  // attack-angle actions) is looked up by code here rather than hardcoded in the keydown
+  // listener, so all of it can be rebound from Settings > Customize Controls at runtime.
+  const DEFAULT_KEY_BINDINGS = {
+    p1Left:'KeyA', p1Right:'KeyD', p1Jump:'KeyW', p1Hit:'Space',
+    p2Left:'ArrowLeft', p2Right:'ArrowRight', p2Jump:'ArrowUp', p2Hit:'Enter',
+    p1AngleUp:'KeyQ', p1AngleDown:'KeyE', p2AngleUp:'KeyU', p2AngleDown:'KeyO'
+  };
   let keyBindings = Object.assign({}, DEFAULT_KEY_BINDINGS);
-  // keys that already drive core gameplay — never assignable to an attack-angle action
-  const RESERVED_KEY_CODES = ['KeyW','KeyA','KeyD','ArrowUp','ArrowLeft','ArrowRight','Space','Enter','Escape','KeyR'];
+  // the "Basic" and "Advanced" tabs in Customize Controls each get their own reset scope
+  const BASIC_BINDING_ACTIONS = ['p1Left','p1Right','p1Jump','p1Hit','p2Left','p2Right','p2Jump','p2Hit'];
+  const ADVANCED_BINDING_ACTIONS = ['p1AngleUp','p1AngleDown','p2AngleUp','p2AngleDown'];
+  // keys that never drive gameplay directly — never assignable to any action
+  const HARD_RESERVED_CODES = ['Escape','F3','KeyR'];
 
   function keyLabel(code){
     if(!code) return '—';
@@ -2182,6 +2881,18 @@
     });
   }
 
+  // keeps the compact "P1/P2 CONTROLS" summary on the menu in sync with any rebind
+  function refreshControlsHints(){
+    const p1Move = document.getElementById('p1MoveHint');
+    const p1Hit = document.getElementById('p1HitHint');
+    const p2Move = document.getElementById('p2MoveHint');
+    const p2Hit = document.getElementById('p2HitHint');
+    if(p1Move) p1Move.textContent = keyLabel(keyBindings.p1Left) + '/' + keyLabel(keyBindings.p1Right) + ': Move • ' + keyLabel(keyBindings.p1Jump) + ': Jump/Smash';
+    if(p1Hit) p1Hit.textContent = keyLabel(keyBindings.p1Hit) + ': Hold to Charge Hit';
+    if(p2Move) p2Move.textContent = keyLabel(keyBindings.p2Left) + '/' + keyLabel(keyBindings.p2Right) + ': Move • ' + keyLabel(keyBindings.p2Jump) + ': Jump/Smash';
+    if(p2Hit) p2Hit.textContent = keyLabel(keyBindings.p2Hit) + ': Hold to Charge Hit';
+  }
+
   function rejectRebind(action){
     const btn = document.querySelector('.keybindBtn[data-action="' + action + '"]');
     if(!btn) return;
@@ -2204,18 +2915,22 @@
     const code = e.code;
     listeningForAction = null;
     if(code === 'Escape'){ updateKeybindButtons(); return; }
-    const conflict = RESERVED_KEY_CODES.indexOf(code) !== -1 ||
+    const conflict = HARD_RESERVED_CODES.indexOf(code) !== -1 ||
       Object.keys(keyBindings).some(function(a){ return a !== action && keyBindings[a] === code; });
     if(conflict){ rejectRebind(action); return; }
     keyBindings[action] = code;
     updateKeybindButtons();
+    refreshControlsHints();
   }, true);
 
-  // A player is "human controlled" unless they're the right-side player in AI mode —
-  // mirrors the mode !== 'ai' gate already used throughout for right-player-only input.
+  // A player is "human controlled" unless the current mode assigns an AI to their side:
+  // 'ai' puts an AI on the right player only, 'aivai' puts AIs on both players. Every
+  // input gate (keyboard handlers, Advanced Controls) routes through this one predicate.
   function isHumanControlled(p){
+    if(mode === 'aivai') return false;
     return !(p.side === 'right' && mode === 'ai');
   }
+  function isAIControlled(p){ return !isHumanControlled(p); }
 
   // AttackAngleController — the only place PlayerAttackAngle is ever mutated.
   function adjustAttackAngle(p, deltaDeg){
@@ -2238,25 +2953,106 @@
     // identical duration, so a fixed value made the AI's power gauge look like it was
     // always charging to roughly the same (often near-max) point. Rolling within a range
     // instead gives visibly different power on different swings while keeping each
-    // difficulty's average roughly where it was. anticipateMargin controls how early (in
-    // px before the shuttle reaches the net) the AI starts treating an inbound shot as
-    // something it needs to move for — see the isThreat check in updateAI.
+    // difficulty's average roughly where it was.
     // smashReactionDelay/smashChargeDuration kick in specifically when the incoming
     // shuttle is a smash — quicker tracking + a short, reliable underhand block instead
     // of trying (and usually failing) to jump-return it; this one stays a fixed short tap
     // since it needs to reliably land under NET_DINK_TAP_MAX_CHARGE's dink threshold.
-    easy:   { reactionDelay:0.38, aimError:75, jumpChance:0.22, chargeDurationMin:0.10, chargeDurationMax:0.32, missChance:0.20, servePower:0.32,
-              smashReactionDelay:0.30, smashChargeDuration:0.18, smashMissChance:0.35, anticipateMargin:40 },
-    medium: { reactionDelay:0.20, aimError:35, jumpChance:0.35, chargeDurationMin:0.22, chargeDurationMax:0.50, missChance:0.08, servePower:0.50,
-              smashReactionDelay:0.15, smashChargeDuration:0.14, smashMissChance:0.15, anticipateMargin:150 },
-    hard:   { reactionDelay:0.08, aimError:12, jumpChance:0.45, chargeDurationMin:0.32, chargeDurationMax:0.62, missChance:0.0,  servePower:0.68,
-              smashReactionDelay:0.05, smashChargeDuration:0.10, smashMissChance:0.03, anticipateMargin:320 }
+    // depthAwareness (0..1) is how reliably this difficulty scales its shot power up when
+    // hitting from deep in the court — the single biggest source of unforced errors is a
+    // too-soft return from the back line that dies at the net, and better players simply
+    // don't make that mistake. 1.0 = always compensates for depth, lower = often doesn't.
+    // dashUse: 'never' | 'fast-chars' | 'always' — whether this difficulty reaches for the
+    // dash to cover ground ('fast-chars' = only characters with high Speed think to use it).
+    // placementSkill (0..1) is how often this difficulty picks its landing target
+    // TACTICALLY (away from where the opponent is standing) instead of just hitting a
+    // comfortable rally ball — decision quality, not a physics cheat.
+    // recoverTime is the post-swing "planted" pause (s) before the AI can move again —
+    // a real player needs a beat to reset their footing after committing to a shot, and
+    // this is what lets good PLACEMENT (drop → deep clear alternation) win points against
+    // a defender instead of every rally ending only on a random error roll. Scaled down
+    // by the character's Speed in runAI, so fast characters genuinely recover quicker.
+    // momentumAwareness (0..1) is how much the scoreboard is allowed to shift this
+    // player's aggression/precision — see momentumAggressionShift(). Weaker difficulties
+    // barely notice the score; better ones visibly tighten up protecting a lead and take
+    // more chances chasing a deficit, the way a self-aware human player does.
+    // jumpChance is now the base RATE at which a genuinely smashable ball actually gets
+    // smashed (see chooseAIPlan's jumpChanceEff) — raised noticeably across the board, on
+    // the premise that jump timing is now driven by predictShuttleTimeToY() (see runAI),
+    // a real forward simulation of the shuttle's flight rather than a same-frame reactive
+    // check. A good player who can reliably TIME a jump smash takes that shot almost every
+    // time it's on, not as a coin flip — hesitating used to be a hedge against mistimed
+    // jumps that isn't needed anymore.
+    easy:   { reactionDelay:0.38, aimError:75, jumpChance:0.25, chargeDurationMin:0.10, chargeDurationMax:0.32, missChance:0.20, servePower:0.32,
+              smashReactionDelay:0.30, smashChargeDuration:0.18, smashMissChance:0.35, depthAwareness:0.55, dashUse:'never',      placementSkill:0.30, recoverTime:0.55, momentumAwareness:0.25 },
+    medium: { reactionDelay:0.20, aimError:35, jumpChance:0.45, chargeDurationMin:0.22, chargeDurationMax:0.50, missChance:0.08, servePower:0.50,
+              smashReactionDelay:0.15, smashChargeDuration:0.14, smashMissChance:0.15, depthAwareness:0.80, dashUse:'fast-chars', placementSkill:0.60, recoverTime:0.42, momentumAwareness:0.55 },
+    hard:   { reactionDelay:0.08, aimError:12, jumpChance:0.70, chargeDurationMin:0.32, chargeDurationMax:0.62, missChance:0.06, servePower:0.68,
+              smashReactionDelay:0.05, smashChargeDuration:0.10, smashMissChance:0.08, depthAwareness:1.0,  dashUse:'always',     placementSkill:0.88, recoverTime:0.32, momentumAwareness:0.85 },
+    // Highest difficulty: near-optimal decision QUALITY — quicker reads, tighter targets,
+    // near-zero unforced errors — but still 100% bound by the character's stats and the
+    // same physics/inputs as everyone else. No speed boosts, no teleports, no cheats.
+    expert: { reactionDelay:0.04, aimError:6,  jumpChance:0.85, chargeDurationMin:0.35, chargeDurationMax:0.65, missChance:0.025, servePower:0.72,
+              smashReactionDelay:0.03, smashChargeDuration:0.10, smashMissChance:0.04, depthAwareness:1.0,  dashUse:'always',     placementSkill:1.0,  recoverTime:0.24, momentumAwareness:1.0 }
   };
-  const ai = {
-    nextDecisionAt:0, targetX:0, releaseAt:0, serveAt:null,
-    opportunityActive:false, willAttempt:false, willJump:false, incomingSmash:false,
-    hasJumped:false, hasSwung:false, lastJumpAt:-999
-  };
+
+  // Per-side AI controller state — one instance per AI-controlled player, so AI vs AI mode
+  // is just "run the same controller twice". All per-rally decision state lives here.
+  function makeAIController(){
+    return {
+      nextDecisionAt:0, targetX:0, releaseAt:0, serveAt:null,
+      opportunityActive:false, willAttempt:false, plan:null,
+      hasJumped:false, hasSwung:false, lastJumpAt:-999,
+      minHoldUntil:0, maxHoldUntil:0,
+      // whether the shuttle is actually heading toward this AI right now (see runAI) —
+      // drives tight tracking vs. easing off into a loose recovery wander, which
+      // wanderTargetX/nextWanderAt shape.
+      focused:false, wanderTargetX:0, nextWanderAt:0,
+      // Shot-sequencing memory — set after a shot deliberately meant to set up a follow-up
+      // (a short drop pulling the opponent forward, or a deep clear pushing them back).
+      // While it hasn't expired, chooseAIPlan() hunts harder for the kill shot on the
+      // return that comes back, the way a player presses an advantage they just created
+      // instead of treating every incoming ball as a fresh, context-free decision.
+      comboIntent:null, // null | {expiresAt}
+      stateLabel:'—' // purely for the F3 debug overlay
+    };
+  }
+  const aiControllers = { left: makeAIController(), right: makeAIController() };
+  function resetAIController(c){
+    c.nextDecisionAt = 0; c.serveAt = null; c.opportunityActive = false;
+    c.willAttempt = false; c.plan = null; c.hasSwung = false; c.hasJumped = false;
+    c.focused = false; c.comboIntent = null; c.stateLabel = '—';
+  }
+
+  // ---------- stat-derived AI persona ----------
+  // Each character's playstyle emerges from their stats rather than a hand-assigned
+  // personality: all three axes are normalized 0..1 (a 3★ stat sits at 0.5). These feed
+  // every AI decision below — shot choice, aim tightness, reaction, dash eagerness —
+  // so a 5★-power slugger and a 5★-control placer genuinely play differently even at
+  // the same difficulty, and a weaker character never performs like a stronger one.
+  function aiPersonaFor(ch){
+    const s = (ch && ch.stats) || {speed:3, power:3, control:3};
+    return {
+      aggression: (s.power   - 1) / 4, // hunts smash chances, favors pace over placement
+      mobility:   (s.speed   - 1) / 4, // court coverage: dash eagerness, slightly sharper reads on the move
+      precision:  (s.control - 1) / 4  // placement tightness: less aim error, fewer unforced errors, loves the net game
+    };
+  }
+
+  // ---------- momentum / scoreboard awareness ----------
+  // A good human player doesn't play score 0-0 and score 20-14 the same way: protecting a
+  // lead, they tighten up and favor the safe deep clear over a risky net dink; chasing a
+  // deficit, they take more chances hunting for winners. Returns a signed shift applied to
+  // the AI's EFFECTIVE aggression for this decision only — the character's underlying
+  // stats (persona) never change, this just layers situational nerve on top, scaled by
+  // the difficulty's momentumAwareness so weak difficulties barely notice the scoreboard.
+  function momentumAggressionShift(p, opp, diff){
+    const scoreDiff = p.score - opp.score; // positive = I'm ahead
+    let shift = -Math.max(-1, Math.min(1, scoreDiff / 6)) * 0.22; // trailing -> more aggressive
+    if(p.score >= WIN_SCORE - 2 && scoreDiff > 0) shift -= 0.10;       // protecting a near-win — play it safe
+    if(opp.score >= WIN_SCORE - 2 && scoreDiff < 0) shift += 0.12;     // facing match point — swing for it
+    return Math.max(-0.3, Math.min(0.3, shift)) * diff.momentumAwareness;
+  }
 
 
   // margin between the canvas edge and the court's outer white line — kept wide so there's
@@ -2281,6 +3077,15 @@
   // true only for the flight of the shuttle immediately off a serve, before it has been
   // returned — governs the stricter service-box landing rule instead of the full-court one
   let isServeFlight = false;
+
+  // ---------- rally-quality bookkeeping ----------
+  // Counts genuine racket-on-shuttle contacts (serve included) per rally, plus running
+  // totals across the match — read by the F3 AI debug overlay so AI-vs-AI sessions can
+  // continuously validate rally quality (length, consistency) at a glance.
+  let rallyHitCount = 0;   // contacts in the rally currently being played
+  let lastRallyLength = 0; // contacts in the most recently completed rally
+  let ralliesPlayed = 0;
+  let rallyHitsTotal = 0;
 
   function isServiceFault(x){
     // called only once we already know x is inside the outer COURT_LEFT..COURT_RIGHT
@@ -2350,6 +3155,43 @@
   const trail = [];
   const TRAIL_LENGTH = 10;
   const TRAIL_LENGTH_SMASH = 16;
+
+  // ---------------------------------------------------------------------------
+  // PHASE 7 — online entity interpolation tuning (see updateOnlineInterpolation)
+  // ---------------------------------------------------------------------------
+  // The server broadcasts SNAPSHOTs at Protocol.SNAPSHOT_RATE (30Hz, ~33ms apart).
+  // Rendering ~3 intervals behind "now" guarantees there are almost always two real
+  // buffered snapshots straddling the render time, so normal packet-arrival jitter
+  // (a snapshot landing a few ms early/late) never causes a visible stall or skip —
+  // it's absorbed by the delay instead. Bigger = smoother but more input-to-screen
+  // lag for the *opponent*'s and shuttle's motion; this doesn't touch local input
+  // latency at all (input send / local-side prediction is unrelated — Phase 8).
+  const ONLINE_INTERP_DELAY_MS = 100;
+  // Buffered snapshots older than this are pruned even if unconsumed, so a long
+  // background-tab throttle or a stalled loop() can't grow the buffer forever.
+  const ONLINE_SNAPSHOT_BUFFER_MAX_AGE_MS = 1000;
+  // If the buffer runs dry (dropped packets / a hiccup), dead-reckon forward from
+  // the newest known velocity for at most this long before freezing in place —
+  // long enough to smooth over a single missed packet, short enough that we never
+  // extrapolate far past what the server actually ends up sending.
+  const ONLINE_EXTRAPOLATE_MAX_MS = 150;
+
+  // ---------------------------------------------------------------------------
+  // PHASE 8 — client-side prediction & server reconciliation tuning
+  // ---------------------------------------------------------------------------
+  // Movement input is stepped and sent at the SAME fixed cadence the server ticks
+  // at (Protocol.TICK_RATE, 60Hz) — decoupled from render framerate — so replaying
+  // the client's own unacked inputs on top of a corrected server baseline retraces
+  // exactly the steps the server took, tick for tick (see stepOnlinePrediction /
+  // reconcileLocalPrediction below). A safety clamp on the per-frame accumulator
+  // mirrors the server scheduler's own clamp, so a tab stall/GC pause can't make
+  // either end try to "catch up" through an enormous burst of ticks at once.
+  const ONLINE_PREDICTION_MAX_FRAME_SEC = 0.25;
+  // How many of our own not-yet-acked inputs we'll hold onto for replay. Mirrors
+  // the server's MAX_QUEUED_INPUTS bound (server/Room.js) for the same reason —
+  // under sustained bad latency we cap the backlog rather than let a reconnect
+  // replay minutes of stale movement in one tick.
+  const ONLINE_PENDING_INPUTS_MAX = 180;
 
   // ---------- screen shake ----------
   let shakeTime = 0, shakeDuration = 0.001, shakeMag = 0;
@@ -2463,7 +3305,10 @@
   const keys = {};
 
   window.addEventListener('keydown', (e)=>{
-    if(['ArrowLeft','ArrowRight','ArrowUp','Space','Enter','Escape'].includes(e.code)) e.preventDefault();
+    // prevent the browser default (page scroll, form submit, etc) for whatever is
+    // currently bound to a game action, plus the handful of always-reserved keys
+    const preventCodes = ['Escape','F3'].concat(Object.values(keyBindings));
+    if(preventCodes.indexOf(e.code) !== -1) e.preventDefault();
     if(e.code === 'Escape'){
       if(!keys[e.code]) togglePause();
       keys[e.code] = true;
@@ -2475,178 +3320,717 @@
 
     const now = performance.now()/1000;
 
+    // AI debug overlay (F3) — only meaningful in AI modes; drawAIDebug() no-ops otherwise
+    if(e.code === 'F3') aiDebugEnabled = !aiDebugEnabled;
+
+    if(onlineMatch){
+      // Online match: never touch local player state directly (the server owns it) —
+      // just capture intent for stepOnlinePrediction() to predict+forward. See PHASE 8 block below.
+      handleOnlineKeydown(e.code, wasDown, now);
+      return;
+    }
+
+    // every gameplay input below is gated per player through isHumanControlled(), so a
+    // side driven by an AI ('ai' right player, 'aivai' both players) can never have its
+    // charge/jump/dash state disturbed by stray keyboard input. All actions are looked
+    // up through keyBindings so Settings > Customize Controls can rebind every one of
+    // them at runtime.
     // jump
-    if(e.code === 'KeyW') tryJump(left, now);
-    if(e.code === 'ArrowUp' && mode !== 'ai') tryJump(right, now);
+    if(e.code === keyBindings.p1Jump && isHumanControlled(left)) tryJump(left, now);
+    if(e.code === keyBindings.p2Jump && isHumanControlled(right)) tryJump(right, now);
 
     // double tap dash
-    if(e.code === 'KeyA') tryDash(left, -1, 'left', now);
-    if(e.code === 'KeyD') tryDash(left, 1, 'right', now);
-    if(e.code === 'ArrowLeft' && mode !== 'ai') tryDash(right, -1, 'left', now);
-    if(e.code === 'ArrowRight' && mode !== 'ai') tryDash(right, 1, 'right', now);
+    if(e.code === keyBindings.p1Left && isHumanControlled(left)) tryDash(left, -1, 'left', now);
+    if(e.code === keyBindings.p1Right && isHumanControlled(left)) tryDash(left, 1, 'right', now);
+    if(e.code === keyBindings.p2Left && isHumanControlled(right)) tryDash(right, -1, 'left', now);
+    if(e.code === keyBindings.p2Right && isHumanControlled(right)) tryDash(right, 1, 'right', now);
 
     // hit / serve — press-and-hold to charge, release to swing
-    if(e.code === 'Space') startCharge(left, now);
-    if(e.code === 'Enter' && mode !== 'ai') startCharge(right, now);
+    if(e.code === keyBindings.p1Hit && isHumanControlled(left)) startCharge(left, now);
+    if(e.code === keyBindings.p2Hit && isHumanControlled(right)) startCharge(right, now);
 
-    // advanced controls — manual attack angle (no-op unless Advanced Controls is on).
-    // Looked up through keyBindings so Settings > Advanced Controls can rebind these.
+    // advanced controls — manual attack angle (no-op unless Advanced Controls is on)
     if(e.code === keyBindings.p1AngleUp) adjustAttackAngle(left, ATTACK_ANGLE_STEP);
     if(e.code === keyBindings.p1AngleDown) adjustAttackAngle(left, -ATTACK_ANGLE_STEP);
-    if(e.code === keyBindings.p2AngleUp && mode !== 'ai') adjustAttackAngle(right, ATTACK_ANGLE_STEP);
-    if(e.code === keyBindings.p2AngleDown && mode !== 'ai') adjustAttackAngle(right, -ATTACK_ANGLE_STEP);
+    if(e.code === keyBindings.p2AngleUp && isHumanControlled(right)) adjustAttackAngle(right, ATTACK_ANGLE_STEP);
+    if(e.code === keyBindings.p2AngleDown && isHumanControlled(right)) adjustAttackAngle(right, -ATTACK_ANGLE_STEP);
 
     if(state === 'gameOver' && e.code==='KeyR') restartGame();
   });
   window.addEventListener('keyup', (e)=>{
     keys[e.code] = false;
     const now = performance.now()/1000;
-    if(e.code === 'Space') releaseHit(left, now);
-    if(e.code === 'Enter') releaseHit(right, now);
+    if(onlineMatch){
+      handleOnlineKeyup(e.code);
+      return;
+    }
+    if(e.code === keyBindings.p1Hit && isHumanControlled(left)) releaseHit(left, now);
+    if(e.code === keyBindings.p2Hit && isHumanControlled(right)) releaseHit(right, now);
   });
+
+  // ---------- mobile touch controls ----------
+  // Movement/jump under the left thumb, hit (+ advanced attack-angle buttons) under
+  // the right thumb — drives Player 1's inputs through the exact same functions the
+  // keyboard handlers use (tryJump/startCharge/releaseHit/adjustAttackAngle, and the
+  // shared `keys` map for movement), so touch play is physically identical to keyboard
+  // play. Always targets Player 1 (left) — the human side in every mode that has a
+  // human on this device (vs AI, and the primary local player in 2-player).
+  const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 ||
+    (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+
+  const touchControlsEl = document.getElementById('touchControls');
+  const touchFullscreenBtn = document.getElementById('touchFullscreenBtn');
+  const touchPauseBtn = document.getElementById('touchPauseBtn');
+  const touchAngleUpBtn = document.getElementById('touchAngleUp');
+  const touchAngleDownBtn = document.getElementById('touchAngleDown');
+
+  // press-and-hold buttons (movement keys, hit charge): onDown fires on touch, onUp
+  // fires on release OR if the finger slides off/is interrupted, so a button can
+  // never get "stuck" held down.
+  function bindHoldButton(el, onDown, onUp){
+    if(!el) return;
+    let active = false;
+    el.addEventListener('pointerdown', function(e){
+      e.preventDefault();
+      active = true;
+      el.classList.add('pressed');
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+      onDown();
+    });
+    function release(){
+      if(!active) return;
+      active = false;
+      el.classList.remove('pressed');
+      onUp();
+    }
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+    el.addEventListener('pointerleave', release);
+    el.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  }
+
+  // one-shot tap buttons (jump, angle step) — same edge-triggered feel as a keydown
+  function bindTapButton(el, onTap){
+    if(!el) return;
+    el.addEventListener('pointerdown', function(e){
+      e.preventDefault();
+      el.classList.add('pressed');
+      onTap();
+    });
+    ['pointerup','pointercancel','pointerleave'].forEach(function(ev){
+      el.addEventListener(ev, function(){ el.classList.remove('pressed'); });
+    });
+    el.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  }
+
+  bindHoldButton(document.getElementById('touchMoveLeft'),
+    function(){
+      keys[keyBindings.p1Left] = true;
+      if(isHumanControlled(left)) tryDash(left, -1, 'left', performance.now()/1000);
+    },
+    function(){ keys[keyBindings.p1Left] = false; });
+  bindHoldButton(document.getElementById('touchMoveRight'),
+    function(){
+      keys[keyBindings.p1Right] = true;
+      if(isHumanControlled(left)) tryDash(left, 1, 'right', performance.now()/1000);
+    },
+    function(){ keys[keyBindings.p1Right] = false; });
+
+  bindTapButton(document.getElementById('touchJump'), function(){
+    if(isHumanControlled(left)) tryJump(left, performance.now()/1000);
+  });
+
+  bindHoldButton(document.getElementById('touchHit'),
+    function(){ if(isHumanControlled(left)) startCharge(left, performance.now()/1000); },
+    function(){ if(isHumanControlled(left)) releaseHit(left, performance.now()/1000); });
+
+  bindTapButton(touchAngleUpBtn, function(){ adjustAttackAngle(left, ATTACK_ANGLE_STEP); });
+  bindTapButton(touchAngleDownBtn, function(){ adjustAttackAngle(left, -ATTACK_ANGLE_STEP); });
+
+  // iPhone/iPod Safari (and any WebKit-based iOS browser, since they all share
+  // WebKit under Apple's rules) never expose requestFullscreen on anything but a
+  // <video> element — there is no vendor prefix or trick that unlocks it, it's a
+  // deliberate WebKit restriction. iPadOS Safari is NOT affected (it behaves like
+  // desktop Safari here), so this only needs to special-case the phone. Detected by
+  // UA rather than feature-sniffing alone so the hint text is only ever shown to
+  // people it actually applies to.
+  function isIOSPhoneSafari(){
+    return /iPhone|iPod/.test(navigator.userAgent);
+  }
+  function isStandaloneApp(){
+    return window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  }
+  const iosHintEl = document.getElementById('iosFullscreenHint');
+  function showIOSFullscreenHint(){
+    if(iosHintEl) iosHintEl.classList.add('visible');
+  }
+  function hideIOSFullscreenHint(){
+    if(iosHintEl) iosHintEl.classList.remove('visible');
+  }
+  if(iosHintEl){
+    document.getElementById('iosHintCloseBtn').addEventListener('click', hideIOSFullscreenHint);
+    // tapping the dim backdrop (not the card itself) also dismisses it
+    iosHintEl.addEventListener('click', function(e){ if(e.target === iosHintEl) hideIOSFullscreenHint(); });
+  }
+
+  // Cross-browser fullscreen helpers. Some Android WebViews / older mobile browsers
+  // (Samsung Internet, older Chrome-based webviews embedded in other apps) still only
+  // expose the vendor-prefixed versions of the Fullscreen API rather than the
+  // unprefixed standard one, so requestFullscreen()/exitFullscreen() alone can silently
+  // no-op there. These helpers fall back through every prefix so "real" fullscreen
+  // (browser chrome + address bar hidden, page fills the whole screen) actually
+  // engages on as many mobile browsers as possible, Chrome for Android included.
+  function fsElement(){
+    return document.fullscreenElement || document.webkitFullscreenElement ||
+      document.mozFullScreenElement || document.msFullscreenElement || null;
+  }
+  function enterFullscreen(){
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen ||
+      el.webkitRequestFullScreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if(!req) return Promise.reject(new Error('Fullscreen API unavailable'));
+    // {navigationUI:'hide'} additionally asks Chrome to keep its own reveal-on-swipe
+    // navigation UI out of the way; browsers that don't understand the option just
+    // ignore it.
+    const result = req.call(el, { navigationUI: 'hide' });
+    return result && result.then ? result : Promise.resolve();
+  }
+  function exitFullscreenAny(){
+    const exit = document.exitFullscreen || document.webkitExitFullscreen ||
+      document.webkitCancelFullScreen || document.mozCancelFullScreen || document.msExitFullscreen;
+    if(!exit) return Promise.reject(new Error('Fullscreen API unavailable'));
+    const result = exit.call(document);
+    return result && result.then ? result : Promise.resolve();
+  }
+  function fullscreenApiAvailable(){
+    const el = document.documentElement;
+    return !!(el.requestFullscreen || el.webkitRequestFullscreen ||
+      el.webkitRequestFullScreen || el.mozRequestFullScreen || el.msRequestFullscreen);
+  }
+  function toggleFullscreen(){
+    if(fsElement()){
+      exitFullscreenAny().catch(function(){});
+      return;
+    }
+    if(!fullscreenApiAvailable()){
+      // No Fullscreen API at all to even attempt. On iPhone/iPod Safari (not yet
+      // installed as a Home Screen app) this is expected and not fixable from a
+      // browser tab — point the player at the one thing that does work. Anywhere
+      // else this is unexpected, so just fall back to the address-bar scroll trick.
+      if(isIOSPhoneSafari() && !isStandaloneApp()){
+        showIOSFullscreenHint();
+      } else {
+        window.scrollTo(0, 1);
+      }
+      return;
+    }
+    enterFullscreen().then(function(){
+      if(screen.orientation && screen.orientation.lock){
+        screen.orientation.lock('landscape').catch(function(){});
+      }
+    }).catch(function(){
+      // Fullscreen API refused (some in-app browsers/webviews block it outright).
+      // Falling back to scrolling the address bar out of view is the only other
+      // lever a webpage has — not a true fullscreen, but shrinks the visible
+      // chrome as much as possible so the game still gets more screen space.
+      window.scrollTo(0, 1);
+    });
+  }
+
+  if(touchFullscreenBtn){
+    touchFullscreenBtn.addEventListener('click', toggleFullscreen);
+    ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'].forEach(function(ev){
+      document.addEventListener(ev, function(){
+        touchFullscreenBtn.textContent = fsElement() ? '⤢' : '⛶';
+      });
+    });
+  }
+
+  if(touchPauseBtn){
+    touchPauseBtn.addEventListener('click', function(){
+      togglePause();
+      touchPauseBtn.textContent = paused ? '▶' : '⏸';
+      touchPauseBtn.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+    });
+  }
+
+  // Shown only on touch devices, and only the movement/hit cluster is hidden while a
+  // menu overlay or the pause screen is up (the fullscreen and pause buttons stay
+  // available so they're reachable from the main menu too, and while paused). Angle
+  // buttons only appear once Advanced Controls is on. Cheap enough to just re-check
+  // every frame from draw() below.
+  function updateTouchControlsVisibility(){
+    if(touchControlsEl){
+      const showGameplay = isTouchDevice && !paused &&
+        (state === 'serve' || state === 'rally' || state === 'pointPause');
+      touchControlsEl.classList.toggle('visible', showGameplay);
+    }
+    if(touchAngleUpBtn) touchAngleUpBtn.classList.toggle('hidden', !advancedControlsEnabled);
+    if(touchAngleDownBtn) touchAngleDownBtn.classList.toggle('hidden', !advancedControlsEnabled);
+    if(touchFullscreenBtn) touchFullscreenBtn.classList.toggle('visible', isTouchDevice);
+    // Pause button only makes sense once a match actually exists to pause (hidden on
+    // the main menu / char-select / game-over, where there's nothing to pause).
+    if(touchPauseBtn){
+      const showPause = isTouchDevice &&
+        (state === 'serve' || state === 'rally' || state === 'pointPause' || paused);
+      touchPauseBtn.classList.toggle('visible', showPause);
+      touchPauseBtn.textContent = paused ? '▶' : '⏸';
+    }
+  }
 
   function tryJump(p, now){
     if(state !== 'rally' && state !== 'serve') return;
     if(p.onGround){ p.vy = JUMP_VELOCITY; p.onGround = false; }
   }
 
-  // Default "ready" stance used both to start a serve and, now, as the spot the AI
-  // recovers to whenever the shuttle isn't actually heading its way — same well-back-
-  // from-the-net position as the existing serve stance, reused rather than duplicated.
-  const AI_READY_STANCE_X = (COURT_RIGHT-180-PLAYER_W) + PLAYER_W/2;
+  // Per-side movement flags the AI drives — stored in the same `keys` map a human's
+  // keydown/keyup handlers use, but under virtual codes that can never collide with a
+  // real KeyboardEvent.code (or with whatever a player has rebound their own keys to),
+  // so AI movement runs through updatePlayer() with identical physics regardless of
+  // Customize Controls settings.
+  const AI_KEYMAP = {
+    left:  { moveLeft:'__AI_LEFT_MOVE_LEFT__',  moveRight:'__AI_LEFT_MOVE_RIGHT__' },
+    right: { moveLeft:'__AI_RIGHT_MOVE_LEFT__', moveRight:'__AI_RIGHT_MOVE_RIGHT__' }
+  };
+
+  // Default "ready" stance per side — used to start a serve, to receive one, and as the
+  // spot the AI recovers to whenever the shuttle isn't actually heading its way. Same
+  // well-back-from-the-net position as each player's spawn stance, reused not duplicated.
+  function aiReadyStanceX(side){
+    return side === 'left'
+      ? (COURT_LEFT+180) + PLAYER_W/2
+      : (COURT_RIGHT-180-PLAYER_W) + PLAYER_W/2;
+  }
+
+  // How long a "hunt for the kill" combo intent stays armed after a setup shot — long
+  // enough to cover the opponent's forced return, not so long it colors unrelated rallies.
+  const COMBO_WINDOW = 3.2;
+
+  // ---------- situational shot planning ----------
+  // Chosen ONCE per incoming shuttle (at opportunity start), the way a real player commits
+  // to a shot as the shuttle comes toward them. The plan weighs: what's incoming (smash?),
+  // my court position (net / mid / rear), the shuttle's height, where the OPPONENT is
+  // standing (deep → drop short; at the net → clear over them), the character's
+  // stat-derived persona (already carries any momentum-shift the caller applied), and
+  // contactStress — how stretched/rushed this particular contact is, which sloppies up
+  // the placement the way a real player's touch gets worse the more scrambled they are.
+  // It returns a target charge-fraction window, which releaseHit()'s existing mechanics
+  // then turn into the actual dink/drop/drive/clear/smash/block.
+  function chooseAIPlan(p, opp, ai, diff, persona, now, contactStress){
+    const halfCourt = (COURT_RIGHT - COURT_LEFT)/2;
+    const myDistNet  = Math.abs((p.x   + PLAYER_W/2) - NET_X);
+    const oppDistNet = Math.abs((opp.x + PLAYER_W/2) - NET_X);
+    const oppDeep  = oppDistNet > halfCourt*0.55;
+    const oppAtNet = oppDistNet < halfCourt*0.30;
+
+    // Shot sequencing: am I still hunting for a kill shot I set up a moment ago (a drop
+    // that pulled the opponent forward, or a deep clear that pushed them back)? While
+    // armed, marginal high balls read as smashable more readily — pressing an advantage
+    // instead of treating every return as a fresh, context-free decision.
+    const combo = ai.comboIntent && now < ai.comboIntent.expiresAt;
+
+    // a smashable ball is a genuine LOB — clearly above head height as it arrives. A fast
+    // flat drive momentarily "above head" out at reach's edge is not one: committing a
+    // jump to it just buries a rushed half-charge float into the tape. The height bar
+    // itself scales with the difficulty's jumpChance — a sharper player recognizes a kill
+    // opportunity in a moderately lifted ball, not only an obvious, very high one — and
+    // hunting a combo kill loosens it further, a player pressing the point takes the
+    // marginal one. Jump TIMING (see runAI's predictShuttleTimeToY call) is now a real
+    // forward prediction rather than a same-frame reactive check, so this recognition bar
+    // can afford to be this generous without the jump ending up mistimed.
+    const smashHeightMargin = (100 - 28*diff.jumpChance) * (combo ? 0.6 : 1);
+    const highBall = shuttle.y < p.y - smashHeightMargin;
+
+    // Incoming smash → defensive block: a short, reliable underhand touch (never a jump).
+    if(shuttle.kind === 'smash'){
+      return {type:'block', windupEarly:true, fixedHold:diff.smashChargeDuration, jump:false};
+    }
+
+    // Jump smash — the offensive kill. High-power characters actively hunt for this;
+    // low-power characters are somewhat less eager (their smash isn't as devastating) but
+    // still take a genuinely open opportunity — a real player doesn't pass up a free kill
+    // shot just because their swing isn't the hardest one on the court.
+    // Geometric constraint a real player respects instinctively: a smash launches on a
+    // steep DOWNWARD path from jump height, so from deep court it grounds on the hitter's
+    // own side long before the net — it's only a playable shot from the front/mid court.
+    // Deep high balls get cleared or dropped instead (the branches below).
+    const smashRange = myDistNet < halfCourt*0.55;
+    const jumpCooldown = 0.9 * (1.3 - 0.5*diff.jumpChance); // sharper difficulties reset faster
+    const canJump = p.onGround && highBall && smashRange && (now - ai.lastJumpAt > jumpCooldown);
+    // floor raised well above the old coin-flip baseline: a genuinely open smash chance
+    // should be taken almost every time at the higher difficulties, not hedged against —
+    // that hedge existed only because jump timing used to be unreliable, and it isn't
+    // anymore (see predictShuttleTimeToY in runAI).
+    const jumpChanceEff = diff.jumpChance * (0.75 + 0.6*persona.aggression) * (combo ? 1.4 : 1);
+    if(canJump && Math.random() < Math.min(0.97, jumpChanceEff)){
+      ai.comboIntent = null; // pressed the advantage and swung for it — combo resolved
+      // A jump smash is a quick, explosive snap, not a slow half-second wind-up — a real
+      // player doesn't hang in the air holding the charge. This range was originally tuned
+      // like a grounded shot's (up to ~0.76s of hold) and routinely outlasted the shuttle's
+      // actual time at smashable height, so the swing consistently arrived too late even
+      // though the jump itself was timed correctly. fracMin sits right at releaseHit's own
+      // floor for calling a jumping hit a "smash" at all (chargeFrac >= 0.5 — anything
+      // under that plays as a soft float instead, no matter how well the jump was timed) —
+      // the shortest hold that still reliably registers as one. fracMax only scales with
+      // aggression, not fracMin, so slower-charging characters (low Speed lengthens
+      // chargeTimeFor, and with it every fraction's real-world seconds) aren't pushed
+      // toward a longer absolute hold than they can physically fit inside one jump.
+      return {type:'smash', windupEarly:true, jump:true,
+              fracMin:0.50, fracMax:0.56 + 0.12*persona.aggression};
+    }
+
+    // Net game — I'm close to the net: a soft dink is deadliest when the opponent is deep.
+    // High-control characters love this shot; low-control ones only risk it when it's
+    // clearly on. (Tap-length charge → releaseHit's dink mechanics take over.)
+    if(myDistNet <= NET_DINK_DISTANCE*0.9 && (oppDeep || Math.random() < 0.25 + 0.35*persona.precision)){
+      // a dink pulls the opponent forward — arm the combo so a weak lifted reply gets hunted
+      if(Math.random() < diff.placementSkill * (0.35 + 0.4*persona.aggression)){
+        ai.comboIntent = {expiresAt: now + COMBO_WINDOW};
+      }
+      return {type:'dink', windupEarly:false, fracMin:0.03, fracMax:0.09, jump:false};
+    }
+
+    // Everything else is a float return, and the real decision is PLACEMENT: where on the
+    // opponent's side should this land? Tactical play targets the ground the opponent
+    // ISN'T covering — short when they're camped deep (the classic rally-ender), over
+    // their head when they crowd the net, and toward the bigger open space otherwise.
+    // How often the AI actually makes the tactical pick (vs. a comfortable neutral rally
+    // ball) is the difficulty's placementSkill; how tightly the shot lands on the picked
+    // spot combines the difficulty's aimError with the character's Control.
+    const shortTarget = 130 + Math.random()*90;  // drops just past their service line
+    const deepTarget  = 450 + Math.random()*60;  // pushes at their back line, stays in bounds
+    const midTarget   = 280 + Math.random()*120; // neutral rally ball
+    let targetDepth;
+    if(Math.random() < diff.placementSkill){
+      if(oppDeep)       targetDepth = (Math.random() < 0.60 + 0.25*persona.precision) ? shortTarget : deepTarget;
+      else if(oppAtNet) targetDepth = deepTarget;
+      else              targetDepth = Math.random() < 0.5 ? shortTarget : deepTarget;
+    } else {
+      targetDepth = Math.random() < 0.5 ? midTarget : deepTarget;
+    }
+    // contactStress widens the miss on the intended spot — a stretched/rushed/airborne
+    // contact is a sloppier contact, physically, not just a coin-flip "fail" flag.
+    targetDepth += (Math.random()*2 - 1) * diff.aimError * (1.35 - 0.7*persona.precision) * (1 + 1.1*contactStress);
+    targetDepth = Math.max(120, Math.min(520, targetDepth));
+    const type = targetDepth < 230 ? 'drop' : targetDepth > 430 ? 'clear' : 'drive';
+    // a short drop or a deep clear both set up a follow-up kill the same way the dink
+    // above does — the drive stays a neutral rally ball and doesn't arm anything.
+    if(type !== 'drive' && Math.random() < diff.placementSkill * (0.30 + 0.35*persona.aggression)){
+      ai.comboIntent = {expiresAt: now + COMBO_WINDOW};
+    }
+    return {type, windupEarly:true, targetDepth, jump:false};
+  }
+
+  // Inverse of the float-shot physics: the charge fraction that makes a grounded float
+  // land targetDepth px past the net when hit from distFromNet px in front of it. The
+  // linear model below was fitted against updateShuttle's actual trajectory integration
+  // (gravity/terminal-vy/drag, launch angle scaling with distance) and holds within a few
+  // px across the whole court, so the AI's placement is driven by the real physics rather
+  // than hand-tuned charge windows. Character Power scales shot speed, so the fraction is
+  // normalized by the same multiplier releaseHit applies.
+  function floatChargeFracFor(targetDepth, distFromNet, ch){
+    const frac = (targetDepth - 380 + 0.97*distFromNet) / 640;
+    return Math.max(0.06, Math.min(0.95, frac / powerMultForRegular(ch)));
+  }
 
   function updateAI(dt, now){
-    if(mode !== 'ai') return;
+    if(mode !== 'ai' && mode !== 'aivai') return;
+    // right player is AI in both modes; left joins in AI vs AI
+    runAI(right, left, aiControllers.right, dt, now);
+    if(mode === 'aivai') runAI(left, right, aiControllers.left, dt, now);
+  }
+
+  // The single AI controller, fully parameterized by side — 'ai' mode runs it once (right
+  // player), 'aivai' runs it for both players with their own controller state. It only
+  // ever acts through the same channels a human has: movement keys, tryJump, dash fields,
+  // startCharge/releaseHit — never by writing positions or velocities directly.
+  function runAI(p, opp, ai, dt, now){
     const diff = AI_PROFILES[aiDifficulty];
+    const persona = aiPersonaFor(p.character);
+    const km = AI_KEYMAP[p.side];
+    const dead = 6;
 
-    keys['ArrowLeft'] = false;
-    keys['ArrowRight'] = false;
-    keys['ArrowUp'] = false;
+    keys[km.moveLeft] = false;
+    keys[km.moveRight] = false;
 
-    if(state === 'serve' && servingSide === 'right'){
-      const standCenterX = (COURT_RIGHT-180-PLAYER_W) + PLAYER_W/2; // default stance, well back from the net
-      const centerX = right.x + PLAYER_W/2;
-      const inStance = Math.abs(centerX - standCenterX) < 12;
+    if(state === 'serve' && servingSide === p.side){
+      ai.stateLabel = 'serve';
+      const standCenterX = aiReadyStanceX(p.side); // default stance, well back from the net
+      const centerX = p.x + PLAYER_W/2;
+      // <= so the exact boundary counts as in-stance — walking stops once the gap is
+      // within 12px, so a player parked at exactly 12 would otherwise neither move nor
+      // serve, freezing the match
+      const inStance = Math.abs(centerX - standCenterX) <= 12;
       if(!inStance){
-        if(centerX > standCenterX + 12) keys['ArrowLeft'] = true;
-        else if(centerX < standCenterX - 12) keys['ArrowRight'] = true;
+        if(centerX > standCenterX + 12) keys[km.moveLeft] = true;
+        else if(centerX < standCenterX - 12) keys[km.moveRight] = true;
         ai.serveAt = null; // don't count reaction time while still walking back
         return;
       }
       if(ai.serveAt === null) ai.serveAt = now + diff.reactionDelay;
-      if(!right.charging && now >= ai.serveAt){
-        startCharge(right, now);
+      if(!p.charging && now >= ai.serveAt){
+        startCharge(p, now);
         const jitter = (Math.random()*0.16 - 0.08); // some variance so it's not identical every time
-        const targetFrac = Math.min(0.95, Math.max(0.15, diff.servePower + jitter));
-        ai.releaseAt = now + targetFrac * MAX_CHARGE_TIME;
-      } else if(right.charging && now >= ai.releaseAt){
-        releaseHit(right, now);
+        // aggressive (high-power) characters lean into slightly deeper serves
+        const targetFrac = Math.min(0.95, Math.max(0.15, diff.servePower + 0.1*(persona.aggression-0.5) + jitter));
+        ai.releaseAt = now + targetFrac * chargeTimeFor(p.character);
+      } else if(p.charging && now >= ai.releaseAt){
+        releaseHit(p, now);
         ai.serveAt = null;
       }
       return;
     }
-    if(state !== 'rally'){ ai.serveAt = null; return; }
+    if(state === 'serve'){
+      // Receiving — the opponent is winding up their serve. Walk back to the ready
+      // stance instead of standing frozen wherever the previous rally ended; without
+      // this the AI could still be out near the net when the serve is struck, with no
+      // time left to get into position to return it.
+      ai.stateLabel = 'receive';
+      ai.serveAt = null;
+      const stance = aiReadyStanceX(p.side);
+      const centerX = p.x + PLAYER_W/2;
+      if(stance > centerX + dead) keys[km.moveRight] = true;
+      else if(stance < centerX - dead) keys[km.moveLeft] = true;
+      return;
+    }
+    if(state !== 'rally'){ ai.serveAt = null; ai.stateLabel = '—'; return; }
+
+    // Direction check: whether the shuttle is actually heading toward this AI right now.
+    // Noticing "it's coming at me" is near-instant for a real player — it's the PRECISE
+    // read of where it'll land that takes reaction time, not the fact that they need to
+    // move at all. So this flips immediately (every frame), and forces a fresh decision
+    // right away when it changes rather than waiting out the normal decision cadence.
+    const towardMe = p.side === 'right' ? shuttle.vx > 0 : shuttle.vx < 0;
+    if(towardMe !== ai.focused){
+      ai.focused = towardMe;
+      ai.nextDecisionAt = now;
+    }
+    ai.stateLabel = ai.focused ? 'track' : 'recover';
 
     if(now >= ai.nextDecisionAt){
       const incomingSmash = shuttle.kind === 'smash';
-      const reactDelay = incomingSmash ? diff.smashReactionDelay : diff.reactionDelay;
+      // quicker characters (and quicker difficulties) refresh their read more often —
+      // reaction is a skill axis, but it's bounded and never lets the AI act faster
+      // than its own movement/charge physics allow
+      const reactDelay = (incomingSmash ? diff.smashReactionDelay : diff.reactionDelay)
+                         * (1.15 - 0.3*persona.mobility);
       ai.nextDecisionAt = now + reactDelay;
 
-      // Don't track the shuttle for its entire flight like a scripted camera — a real
-      // player stands somewhere reasonable and only actually moves once a shot is close
-      // enough to be a real threat they need to answer. "Threat" = heading toward the
-      // AI's side (vx > 0) AND within anticipateMargin px of the net — easy difficulty
-      // barely reacts before the shuttle is already on top of it, hard reads the shot
-      // earlier (while it's still crossing) and starts moving sooner, same as a sharper
-      // player would. Anything else (shuttle still deep on the opponent's side, or
-      // heading away because the AI just hit it) — hold the ready stance instead of
-      // drifting to wherever the shuttle currently happens to be.
-      const isThreat = shuttle.vx > 0 && shuttle.x >= NET_X - diff.anticipateMargin;
       let predicted;
-      if(isThreat){
+      if(ai.focused){
         // anticipate where the shot will actually land (not just its current position),
-        // so movement starts early like a player reading the shot, and covers the real
-        // target instead of only the ball's current spot
+        // so movement starts early like a player reading the shot. Placement-read error
+        // shrinks with the character's Control — precise players read the landing spot
+        // tighter, sloppy ones drift off it.
         predicted = predictShuttleLandingX();
+        predicted += (Math.random()*2-1) * diff.aimError * (1.35 - 0.7*persona.precision);
       } else {
-        predicted = AI_READY_STANCE_X;
+        // not focused — the shuttle's someone else's problem for now. Recover toward the
+        // ready stance, re-rolling a small offset every so often instead of freezing in
+        // one spot, so idle recovery reads as a restless, adaptive player. Kept tight so
+        // recovery never leaves the AI too far out of position for the next return.
+        if(now >= ai.nextWanderAt){
+          const wanderSpread = 40; // px either side of the ready stance
+          ai.wanderTargetX = aiReadyStanceX(p.side) + (Math.random()*2-1) * wanderSpread;
+          ai.nextWanderAt = now + 0.6 + Math.random()*0.8;
+        }
+        predicted = ai.wanderTargetX;
       }
-      predicted += (Math.random()*2-1) * diff.aimError;
       ai.targetX = predicted;
     }
 
-    const centerX = right.x + PLAYER_W/2;
-    const dead = 6;
-    if(ai.targetX > centerX + dead) keys['ArrowRight'] = true;
-    else if(ai.targetX < centerX - dead) keys['ArrowLeft'] = true;
+    // post-swing recovery: for a beat after committing to a shot the AI is planted,
+    // resetting its footing, before it can chase the next one — faster characters (and
+    // higher difficulties) reset quicker. This is what makes PLACEMENT win points: a
+    // defender pulled to the net by a drop genuinely can't instantly sprint down the
+    // follow-up clear. Purely a self-imposed input pause — no physics are altered.
+    const recovering = now - p.lastHitTime < diff.recoverTime * (1.2 - 0.4*persona.mobility);
 
-    // hard difficulty knows how to use the dash to close big gaps when the shuttle
-    // is landing well out of easy reach — easy/medium never dash, so they still feel beatable
-    if(aiDifficulty === 'hard' && right.onGround && right.dashTimer <= 0 && canDash(right.character)){
+    const centerX = p.x + PLAYER_W/2;
+    if(!recovering){
+      if(ai.targetX > centerX + dead) keys[km.moveRight] = true;
+      else if(ai.targetX < centerX - dead) keys[km.moveLeft] = true;
+    }
+
+    // Dash to close big gaps — whether the AI even THINKS to dash is a difficulty trait
+    // (easy never, medium only when playing a genuinely fast character, hard/expert
+    // always), and how eagerly it reaches for it scales with the character's Speed:
+    // a 5★-speed character dashes for gaps a slower one would just concede. Only while
+    // actually chasing — no point burning a dash drifting back to the recovery stance.
+    const dashAllowed = diff.dashUse === 'always' ||
+                        (diff.dashUse === 'fast-chars' && persona.mobility >= 0.75);
+    if(ai.focused && !recovering && dashAllowed && p.onGround && p.dashTimer <= 0 && canDash(p.character)){
       const travelDist = Math.abs(ai.targetX - centerX);
-      if(travelDist > AI_DASH_TRIGGER_DIST && now - right.lastDashTime >= DASH_COOLDOWN){
-        right.dashDir = ai.targetX > centerX ? 1 : -1;
-        right.dashTimer = DASH_DURATION;
-        right.lastDashTime = now;
+      const triggerDist = AI_DASH_TRIGGER_DIST * (1.35 - 0.7*persona.mobility);
+      if(travelDist > triggerDist && now - p.lastDashTime >= DASH_COOLDOWN){
+        p.dashDir = ai.targetX > centerX ? 1 : -1;
+        p.dashTimer = DASH_DURATION;
+        p.lastDashTime = now;
       }
     }
 
     const dx = Math.abs(shuttle.x - centerX);
     const dy = shuttle.y;
-    const aiReach = reachFor(right.character);
+    const aiReach = reachFor(p.character);
     const nearReach = dx <= aiReach + 40;   // loose window: start planning
     const inReach = dx <= aiReach;          // tight window: actually allowed to swing
-    // the AI should never reach across the net to hit a shuttle that's still on the
-    // opponent's side — if it hasn't crossed over, the smart move is to leave it alone
-    // and let it fall (which scores the point automatically), not chase it
-    const shuttleOnMySide = shuttle.x >= NET_X;
-    const smashTop = right.y - 90;
-    const smashBottom = right.y + 220;
+    // never reach across the net for a shuttle still on the opponent's side — if it
+    // hasn't crossed over, the smart move is to leave it alone and let it fall (which
+    // scores the point automatically), not chase it
+    const shuttleOnMySide = p.side === 'right' ? shuttle.x >= NET_X : shuttle.x <= NET_X;
+    const smashTop = p.y - 90;
+    const smashBottom = p.y + 220;
     const canReachHeight = dy >= smashTop && dy <= smashBottom;
-    // only a genuinely high ball is worth leaving the ground for — this is a much higher
-    // bar than "slightly above head", so jumps become a deliberate choice, not a reflex
-    const highBall = shuttle.y < right.y - 55;
-    const incomingSmash = shuttle.kind === 'smash';
 
-    const opportunityReady = nearReach && lastHitBy !== 'right' && now - right.lastHitTime >= HIT_COOLDOWN;
+    const opportunityReady = nearReach && lastHitBy !== p.side && now - p.lastHitTime >= HIT_COOLDOWN;
 
     if(!ai.opportunityActive && opportunityReady){
-      // a new incoming shuttle to deal with — make every decision ONCE, right here
+      // a new incoming shuttle to deal with — commit to a full plan ONCE, right here,
+      // the way a player commits to a shot as the shuttle comes toward them
+
+      // Momentum: layer situational nerve on top of the character's raw stats — protecting
+      // a lead plays it safer (lower effective aggression, sharper effective precision),
+      // chasing a deficit or facing match point takes more chances (the reverse). The
+      // character's underlying persona is never mutated, only this decision's copy.
+      const momentumShift = momentumAggressionShift(p, opp, diff);
+      const effPersona = {
+        aggression: Math.max(0, Math.min(1, persona.aggression + momentumShift)),
+        mobility: persona.mobility,
+        precision: Math.max(0, Math.min(1, persona.precision - momentumShift*0.4))
+      };
+
+      // Contact-quality stress: how stretched/rushed THIS particular contact is, known
+      // before the swing even starts — how far I still have to travel to get into
+      // position, and whether I'm mid-dash (still settling, not planted). A real player's
+      // touch gets worse the more scrambled the approach; this is what actually connects
+      // "how hard was this ball to reach" to "how well did I execute the shot" instead of
+      // every attempt rolling the same fixed error chance regardless of difficulty.
+      const travelNeeded = Math.abs(ai.targetX - centerX);
+      const positionStress = Math.min(1, travelNeeded / 160);
+      const dashStress = (p.dashTimer > 0 || now - p.lastDashTime < 0.25) ? 0.3 : 0;
+      const contactStress = Math.min(1, positionStress*0.7 + dashStress);
+
       ai.opportunityActive = true;
-      ai.incomingSmash = incomingSmash;
-      const missChance = incomingSmash ? diff.smashMissChance : diff.missChance;
-      ai.willAttempt = Math.random() > missChance;
-      // never jump to meet a smash — a real player blocks it underhand instead;
-      // jumping is reserved for slower, clearly-liftable balls
-      ai.willJump = !incomingSmash && right.onGround && highBall && (now - ai.lastJumpAt > 0.9) && Math.random() < diff.jumpChance;
+      ai.plan = chooseAIPlan(p, opp, ai, diff, effPersona, now, contactStress);
+      // a jump adds its own contact difficulty on top (airborne timing is harder than a
+      // planted swing) — folded in here rather than into chooseAIPlan's stress term since
+      // whether the plan jumps is chooseAIPlan's own decision
+      const totalStress = Math.min(1, contactStress + (ai.plan.jump ? 0.3 : 0));
+      // unforced-error model: precise characters flub fewer of their chances, and a
+      // stressed contact (stretched reach, rushed approach, airborne) flubs more of them
+      const baseMiss = ai.plan.type === 'block' ? diff.smashMissChance : diff.missChance;
+      const effMiss = Math.min(0.7, (baseMiss + totalStress*0.4) * (1.3 - 0.6*effPersona.precision));
+      ai.willAttempt = Math.random() > effMiss;
       ai.hasJumped = false;
       ai.hasSwung = false;
     }
 
-    if(ai.opportunityActive){
-      if(ai.willJump && right.onGround && !ai.hasJumped){
-        tryJump(right, now);
-        ai.lastJumpAt = now;
-        ai.hasJumped = true;
+    if(ai.opportunityActive && ai.plan){
+      const plan = ai.plan;
+      ai.stateLabel = plan.type;
+      // Time the jump to MEET the shuttle — predicted, not reactive. predictShuttleTimeToY
+      // forward-simulates the shuttle's actual flight to find exactly how many seconds
+      // until it reaches a comfortable contact height; the AI leaves the ground the
+      // instant that's about equal to how long its own jump takes to rise (JUMP_PEAK_TIME),
+      // so it arrives at height right as the shuttle does. The previous version only
+      // checked the shuttle's CURRENT height/velocity each frame, which for a fast, steep
+      // flight was consistently either a beat early (landing back down before the shuttle
+      // arrived) or a beat late (the ball already past by the time it noticed) — this is
+      // exactly why jump smashes looked mistimed and why so many got downgraded to a lift.
+      if(plan.jump && p.onGround && !ai.hasJumped){
+        const contactHeight = p.y - 45; // a comfortable point in the jump's rise, not the exact apex
+        const timeToContact = predictShuttleTimeToY(contactHeight);
+        const closingIn = dx <= aiReach + 130;
+        if(closingIn && timeToContact !== null && timeToContact <= JUMP_PEAK_TIME + 0.03){
+          tryJump(p, now);
+          ai.lastJumpAt = now;
+          ai.hasJumped = true;
+        }
       }
-      if(ai.willAttempt && !ai.hasSwung && inReach && canReachHeight && shuttleOnMySide &&
-         !right.charging && now - right.lastHitTime >= HIT_COOLDOWN){
-        startCharge(right, now);
-        const chargeDur = ai.incomingSmash ? diff.smashChargeDuration
-                         : diff.chargeDurationMin + Math.random() * (diff.chargeDurationMax - diff.chargeDurationMin);
-        ai.releaseAt = now + chargeDur + (Math.random()*0.12 - 0.06);
+      // The smash window is gone once the jump has come back down before the shuttle did
+      // — there's no getting back into the air in time, so abort into a safe grounded lift
+      // rather than releasing a full smash charge as a weak, flat swing from the ground.
+      // This USED to also separately re-check the shuttle's height against a fixed
+      // threshold, but that check used the player's live (jumping) p.y — which rises the
+      // instant the AI leaves the ground — so it could fire while the shuttle was still
+      // genuinely reachable, aborting well-timed jumps that were a fraction of a second
+      // from connecting. inReach/canReachHeight below (both already correctly dynamic,
+      // tracking the player's actual current height) are the real authority on whether
+      // contact is still possible — no need for a second, conflicting height check here.
+      const smashWindowGone = ai.hasJumped && p.onGround;
+      if(plan.type === 'smash' && smashWindowGone && !ai.hasSwung){
+        if(p.charging && !inReach) releaseHit(p, now); // whiff-abort: no contact possible yet
+        ai.plan = { type:'lift', windupEarly:true, targetDepth: 300 + Math.random()*180, jump:false };
       }
-      if(right.charging && now >= ai.releaseAt){
-        const madeContact = releaseHit(right, now);
-        // only a real touch uses up this opportunity — a whiff (shuttle drifted out of
-        // reach while charging) leaves the AI free to charge up and try again while the
-        // shuttle is still in the air
-        if(madeContact) ai.hasSwung = true;
-        // else: a whiff — leave hasSwung/willAttempt untouched so the AI can charge up
-        // and try again if the still-airborne shuttle comes back within reach
+      // Wind up. Early-windup plans (drive/clear/drop/smash/block) start charging the
+      // moment the shuttle crosses the net heading our way — a real player starts the
+      // backswing while the shuttle is still inbound, not once it's already on the
+      // racket. Release is timed to the shuttle's real position below, so charging early
+      // never makes the swing late; it only buys time to reach the plan's target power.
+      // Tap plans (dink) instead wait until the shuttle is truly in the hit window, since
+      // their whole identity is a sub-0.14-charge touch — winding up early would let the
+      // charge climb past the dink threshold and turn it into a weak float.
+      const windupGate = plan.windupEarly ? (ai.focused || nearReach) : (inReach && canReachHeight);
+      if(ai.willAttempt && !ai.hasSwung && windupGate && shuttleOnMySide &&
+         !p.charging && now - p.lastHitTime >= HIT_COOLDOWN){
+        startCharge(p, now);
+        let holdDur;
+        if(typeof plan.fixedHold === 'number'){
+          holdDur = plan.fixedHold;
+        } else if(typeof plan.targetDepth === 'number'){
+          // placement-driven float: convert the chosen landing spot into the charge that
+          // physically produces it FROM WHERE I'M STANDING RIGHT NOW (not where I was
+          // when the plan was made). depthAwareness models the classic unforced error:
+          // less skilled play sometimes fails to add the extra power a deep hit needs
+          // just to clear the net, and the too-soft return dies short.
+          const myDist = Math.abs(centerX - NET_X);
+          let frac = floatChargeFracFor(plan.targetDepth, myDist, p.character);
+          if(Math.random() >= diff.depthAwareness){
+            frac *= 0.55 + Math.random()*0.3; // under-hit — may not survive the trip
+          }
+          holdDur = frac * chargeTimeFor(p.character);
+        } else {
+          const frac = Math.min(0.98, plan.fracMin + Math.random()*(plan.fracMax - plan.fracMin));
+          holdDur = frac * chargeTimeFor(p.character);
+        }
+        ai.minHoldUntil = now + holdDur;
+        // don't let a slow-arriving shuttle pin the charge at max forever — cap how long
+        // a single wind-up may sit and wait, then let go (likely whiff) and re-arm. Tap
+        // plans get only a whisker of grace, since a late tap stops being a dink at all.
+        const grace = plan.windupEarly ? Math.max(0.3, 0.8*chargeTimeFor(p.character)) : 0.05;
+        ai.maxHoldUntil = now + holdDur + grace;
       }
-      if(!nearReach || lastHitBy === 'right'){
+      if(p.charging){
+        // swing the instant the shuttle is genuinely in reach and the plan's minimum
+        // charge has been reached — OR, if the shuttle is about to escape the hit window
+        // (a fast drive/smash passing through), release RIGHT NOW at whatever charge has
+        // built up. That's the rushed, abbreviated swing a real player makes when the
+        // shuttle arrives earlier than they'd like: a weaker return, but a return.
+        const lookahead = 0.08; // s — one short reaction-beat of shuttle travel
+        const nx = shuttle.x + shuttle.vx*lookahead;
+        const ny = shuttle.y + shuttle.vy*lookahead;
+        // three ways the chance disappears: it drifts out of horizontal reach, it drops
+        // below the swing window, or — the one that actually ends rallies — it touches
+        // the ground. The hit window reaches below floor level, so without the explicit
+        // ground check the AI would happily keep "waiting for more charge" while the
+        // shuttle lands at its feet.
+        const aboutToEscape = Math.abs(nx - (p.x + PLAYER_W/2)) > aiReach ||
+                              ny > smashBottom ||
+                              ny + SHUTTLE_RADIUS >= GROUND_Y;
+        const readyToSwing = inReach && canReachHeight && (now >= ai.minHoldUntil || aboutToEscape);
+        const mustSwing = now >= ai.maxHoldUntil; // shuttle drifted away — let go and re-arm
+        if(readyToSwing || mustSwing){
+          const madeContact = releaseHit(p, now);
+          // only a real touch uses up this opportunity — a whiff (shuttle drifted out of
+          // reach while charging) leaves the AI free to charge up and try again while
+          // the shuttle is still in the air
+          if(madeContact) ai.hasSwung = true;
+        }
+      }
+      if(!nearReach || lastHitBy === p.side){
         ai.opportunityActive = false; // approach resolved — ready for the next one
+        ai.plan = null;
       }
     }
   }
@@ -2682,11 +4066,11 @@
   // tell a genuine swing apart from a whiff, so a whiff doesn't burn its one shot at the shuttle.
   function releaseHit(p, now){
     if(!p.charging) return false;
-    const chargeFrac = Math.min(1, (now - p.chargeStart) / MAX_CHARGE_TIME);
+    const chargeFrac = Math.min(1, (now - p.chargeStart) / chargeTimeFor(p.character));
     p.charging = false;
 
     if(state === 'serve' && servingSide === p.side){
-      doServe(p, chargeFrac);
+      doServe(p, chargeFrac, now);
       return true;
     }
 
@@ -2730,6 +4114,7 @@
 
     p.lastHitTime = now;
     lastHitBy = p.side;
+    rallyHitCount++; // rally-quality bookkeeping: one genuine contact
     p.swingTimer = SWING_DURATION;
     p.swingPowerFrac = 0.6 + 0.4*chargeFrac;
     const dir = p.side === 'left' ? 1 : -1;
@@ -2840,10 +4225,15 @@
   const SERVE_BASE_SPEED = 1130; // ~15% faster than before, in line with the float/smash bump above
   const SERVE_MIN_POWER_MULT = 0.7;
 
-  function doServe(p, chargeFrac){
+  function doServe(p, chargeFrac, now){
     chargeFrac = (typeof chargeFrac === 'number') ? chargeFrac : 1;
     const power = SERVE_MIN_POWER_MULT + (1 - SERVE_MIN_POWER_MULT) * chargeFrac;
     lastHitBy = p.side;
+    rallyHitCount = 1; // rally-quality bookkeeping: serve is contact #1 of the new rally
+    // stamp the serve as a hit so HIT_COOLDOWN actually guards it — previously this was
+    // left unset, so a stale AI opportunity (see setupServe) could pass the cooldown check
+    // and immediately swing again at the shuttle it had just served.
+    if(typeof now === 'number') p.lastHitTime = now;
     p.swingTimer = SWING_DURATION;
     p.swingPowerFrac = 0.6 + 0.4*chargeFrac;
     const dir = p.side === 'left' ? 1 : -1;
@@ -2891,6 +4281,15 @@
     right.swingTimer = 0;
     isServeFlight = false;
     state = 'serve';
+    rallyHitCount = 0;
+    // Clear both AI controllers' per-rally decision state — without this, a leftover
+    // opportunity from the previous rally (e.g. one that never resolved because the point
+    // ended while the AI was mid-approach) survived into the new point. Right after the
+    // AI's own serve that stale state passed every gate (shuttle right next to its own
+    // head counts as "in reach of itself") and fired an immediate, pointless charge —
+    // occasionally even a same-side double-hit fault against its own serve.
+    resetAIController(aiControllers.left);
+    resetAIController(aiControllers.right);
   }
 
   // reason is one of the RALLY_RESULT_LABELS keys (see above); optional and defaulting to
@@ -2906,6 +4305,10 @@
     }
     pointMessage = (sideThatScores==='left' ? 'Left' : 'Right') + ' scores';
     rallyResultLabel = RALLY_RESULT_LABELS[reason] || RALLY_RESULT_LABELS.UNKNOWN_FAULT;
+    // rally-quality bookkeeping (validation/debug overlay): record how long this rally ran
+    lastRallyLength = rallyHitCount;
+    ralliesPlayed++;
+    rallyHitsTotal += rallyHitCount;
     pointPauseTimer = POINT_PAUSE_DURATION;
     state = 'pointPause';
 
@@ -2919,6 +4322,13 @@
       '🏆 ' + (winner.side === 'left' ? 'Left Player' : 'Right Player') + ' Wins';
     document.getElementById('finalScoreText').textContent =
       'Final score ' + left.score + ' — ' + right.score;
+    // Phase 9: this button is reused across the whole session (local restarts
+    // AND every online rematch), so make sure it isn't left in the disabled
+    // "Requesting Rematch…" state a previous online game-over might have set —
+    // see requestOnlineRematch() in the Phase 5/9 lobby IIFE below.
+    const playAgainBtn = document.getElementById('restartBtn');
+    playAgainBtn.disabled = false;
+    playAgainBtn.textContent = 'Play Again';
     document.getElementById('gameOverOverlay').classList.remove('hidden');
     
     // Play point chimes for a big win!
@@ -2928,18 +4338,28 @@
   }
 
   function startGame(){
+    // Clear any mid-pause sub-flow state — relevant when this run through
+    // startGame() was reached via "Change Characters" from the pause menu,
+    // where `paused` was deliberately kept true the whole time so the match
+    // couldn't keep simulating behind the character/background/VS overlays.
+    paused = false;
+    changingCharactersFromPause = false;
     document.getElementById('startOverlay').classList.add('hidden');
     document.getElementById('charSelectOverlay').classList.add('hidden');
     document.getElementById('bgSelectOverlay').classList.add('hidden');
+    document.getElementById('pauseOverlay').classList.add('hidden');
     document.getElementById('serveTag').classList.remove('hidden');
     const hint = document.getElementById('modeHint');
-    hint.textContent = (mode === 'ai'
-      ? ('vs AI · ' + aiDifficulty.charAt(0).toUpperCase() + aiDifficulty.slice(1))
-      : '2-player') + ' · Esc to pause';
+    const diffLabel = aiDifficulty.charAt(0).toUpperCase() + aiDifficulty.slice(1);
+    hint.textContent = (mode === 'ai' ? ('vs AI · ' + diffLabel)
+      : mode === 'aivai' ? ('AI vs AI · ' + diffLabel)
+      : '2-player') + ' · Esc to pause' + (mode === '2p' ? '' : ' · F3: AI debug');
     left.score = 0; right.score = 0;
     left.attackAngle = ATTACK_ANGLE_DEFAULT; left.attackAngleDisplay = ATTACK_ANGLE_DEFAULT;
     right.attackAngle = ATTACK_ANGLE_DEFAULT; right.attackAngleDisplay = ATTACK_ANGLE_DEFAULT;
-    ai.nextDecisionAt = 0; ai.serveAt = null; ai.opportunityActive = false;
+    resetAIController(aiControllers.left);
+    resetAIController(aiControllers.right);
+    lastRallyLength = 0; ralliesPlayed = 0; rallyHitsTotal = 0;
     setupServe();
   }
 
@@ -2950,14 +4370,519 @@
     left.score = 0; right.score = 0;
     left.attackAngle = ATTACK_ANGLE_DEFAULT; left.attackAngleDisplay = ATTACK_ANGLE_DEFAULT;
     right.attackAngle = ATTACK_ANGLE_DEFAULT; right.attackAngleDisplay = ATTACK_ANGLE_DEFAULT;
-    ai.nextDecisionAt = 0; ai.serveAt = null; ai.opportunityActive = false;
+    resetAIController(aiControllers.left);
+    resetAIController(aiControllers.right);
+    lastRallyLength = 0; ralliesPlayed = 0; rallyHitsTotal = 0;
     setupServe();
   }
 
+  // ===========================================================================
+  // PHASE 6 — PLAYER SYNCHRONIZATION (online match: render + input, no local sim)
+  // ===========================================================================
+  // Scope, deliberately: once the server sends MATCH_START, actually show and play
+  // the match — both players, the shuttle, the scoreboard, and the discrete juice
+  // events (hit/point/celebrate.../shake/game over) — driven ENTIRELY by what the
+  // authoritative server sends, reusing every existing render/draw/particle/sound
+  // function untouched. loop() below skips ALL local physics (updateAI/updatePlayer/
+  // updateShuttle/awardPoint/setupServe) whenever onlineMatch is set — the server
+  // owns every one of those, and the client's job here is only to render the latest
+  // authoritative state and forward local input. Discrete/animation-state fields
+  // (onGround, charging, swingTimer, swingKind, swingPowerFrac, dashTimer, score,
+  // the match state machine, servingSide, etc.) still snap immediately from the
+  // newest snapshot. Positions/velocities no longer do, as of Phase 7 — see
+  // applyOnlineSnapshot()'s buffering and updateOnlineInterpolation() below, which
+  // smooth left/right/shuttle motion between the 30Hz snapshots so it doesn't visibly
+  // step at render framerate. Client-side prediction/reconciliation of the LOCAL
+  // player (so your own input feels instant instead of round-trip-delayed) is
+  // Phase 8 and intentionally not done here.
+  //
+  // INPUT MODEL: regardless of which side (left/right) the server actually seats this
+  // client on, the local player always plays with their own "Player 1" key bindings
+  // (Settings > Customize Controls > Basic Controls, P1 rows) — there's only one human
+  // at this keyboard. The server assigns the seat and applies whichever slot this
+  // connection occupies, so the client never needs to know or care which side it is
+  // for input purposes (see server/Room.js _applyInput). mySide is tracked only for
+  // the "You are Left/Right" hint text.
+
+  // Kicks off once MATCH_START arrives (see the Phase 5 IIFE below). `net` is the
+  // already-connected NetClient from the lobby flow; `packet` is the MATCH_START body
+  // ({ leftId, rightId, matchup:{left,right} }).
+  function beginOnlineMatch(net, packet){
+    const mySide = net.clientId === packet.leftId ? 'left' : 'right';
+    onlineMatch = {
+      net: net,
+      mySide: mySide,
+      lastTapTime: { left: -999, right: -999 },
+      lastDashSentTime: -999,
+      pendingJump: false,
+      pendingDash: 0,
+      charging: false,
+      inputSeq: 0,
+      gameOverShown: false,
+      // Phase 7: raw positions/velocities from each SNAPSHOT land here (oldest
+      // first) instead of being applied straight to left/right/shuttle. Consumed
+      // and smoothed once per rendered frame by updateOnlineInterpolation() —
+      // still used for the OPPONENT and the shuttle. As of Phase 8 the LOCAL
+      // player's position no longer comes from this buffer; see `predicted` below.
+      snapshotBuffer: [],
+      // Phase 8 — client-side prediction/reconciliation of the LOCAL player only:
+      // `predicted` is a headless Sim player (same shape shared/simulation.js's
+      // server-side world uses) that this client steps forward locally, every
+      // fixed tick, the instant a key is pressed — so our own movement reads as
+      // instant instead of round-trip-delayed. `pendingInputs` holds every input
+      // command sent but not yet acked (echoed back via a snapshot's ackSeq), so
+      // that once a snapshot arrives, reconcileLocalPrediction() can snap
+      // `predicted` to the server's authoritative baseline for this side and
+      // replay only the inputs the server hasn't processed yet — see
+      // applyOnlineSnapshot()/reconcileLocalPrediction()/stepOnlinePrediction().
+      predicted: Sim.makePlayer(mySide),
+      pendingInputs: [],
+      inputAccumulator: 0
+    };
+
+    // Authoritative matchup from the server — same character objects the local
+    // roster already has, just looked up by the id the server chose.
+    left.character = CHARACTERS.find(function(c){ return c.id === packet.matchup.left; }) || CHARACTERS[0];
+    right.character = CHARACTERS.find(function(c){ return c.id === packet.matchup.right; }) || CHARACTERS[1];
+    // The predicted shadow player needs a real character (not the placeholder
+    // Sim.makePlayer() default) for speed/dash stat multipliers to match the
+    // server exactly — same object the renderer now uses for this side.
+    onlineMatch.predicted.character = mySide === 'left' ? left.character : right.character;
+    left.score = 0; right.score = 0;
+    left.attackAngle = ATTACK_ANGLE_DEFAULT; left.attackAngleDisplay = ATTACK_ANGLE_DEFAULT;
+    right.attackAngle = ATTACK_ANGLE_DEFAULT; right.attackAngleDisplay = ATTACK_ANGLE_DEFAULT;
+    trail.length = 0;
+
+    // Same menu-teardown / canvas-reveal steps startGame() does for a local match.
+    paused = false;
+    changingCharactersFromPause = false;
+    document.getElementById('startOverlay').classList.add('hidden');
+    document.getElementById('charSelectOverlay').classList.add('hidden');
+    document.getElementById('bgSelectOverlay').classList.add('hidden');
+    document.getElementById('pauseOverlay').classList.add('hidden');
+    document.getElementById('gameOverOverlay').classList.add('hidden');
+    document.getElementById('serveTag').classList.remove('hidden');
+    document.getElementById('modeHint').textContent =
+      'Online · You are ' + (onlineMatch.mySide === 'left' ? 'Left' : 'Right') + ' · Esc to pause';
+
+    // Live gameplay packets only start mattering now — attach here rather than at
+    // connect time so a stray snapshot/event can never arrive before onlineMatch exists.
+    net.on('snapshot', applyOnlineSnapshot);
+    net.on('event', applyOnlineEvent);
+    net.on('close', onOnlineSocketClosed);
+
+    state = 'serve'; // provisional until the first snapshot lands a frame or two from now
+  }
+
+  // Applies a SNAPSHOT's discrete/animation-state fields immediately (state machine,
+  // scores, swing/charge/dash timers, onGround, shuttle active/kind/angle), and
+  // buffers its position/velocity data for updateOnlineInterpolation() to smoothly
+  // render from — see the Phase 7 banner above draw() no longer needs any changes
+  // for either: it just reads left/right/shuttle same as always.
+  function applyOnlineSnapshot(packet){
+    if(!onlineMatch) return;
+    state = packet.state;
+    servingSide = packet.servingSide;
+    isServeFlight = packet.isServeFlight;
+    pointPauseTimer = packet.pointPauseTimer;
+
+    applyOnlinePlayerSlice(left, packet.left);
+    applyOnlinePlayerSlice(right, packet.right);
+    shuttle.active = packet.shuttle.active;
+    shuttle.kind = packet.shuttle.kind;
+    shuttle.angle = packet.shuttle.angle;
+
+    // Phase 7: buffer raw position/velocity by LOCAL receipt time rather than the
+    // server's tick/ts. Comparing this client's own performance.now() reads against
+    // each other sidesteps needing real clock-sync (NTP-style offset estimation) —
+    // we only ever ask "how far apart did *I* receive these two packets", never
+    // "what time is it on the server".
+    const buf = onlineMatch.snapshotBuffer;
+    buf.push({
+      recvTime: performance.now(),
+      left: { x: packet.left.x, y: packet.left.y, vx: packet.left.vx, vy: packet.left.vy },
+      right: { x: packet.right.x, y: packet.right.y, vx: packet.right.vx, vy: packet.right.vy },
+      shuttle: { x: packet.shuttle.x, y: packet.shuttle.y, vx: packet.shuttle.vx, vy: packet.shuttle.vy }
+    });
+    const cutoff = performance.now() - ONLINE_SNAPSHOT_BUFFER_MAX_AGE_MS;
+    while(buf.length > 2 && buf[0].recvTime < cutoff) buf.shift();
+
+    // Phase 8: this snapshot's ackSeq tells us exactly how far the server has
+    // caught up on OUR input. Re-baseline the local prediction to the server's
+    // authoritative position for our side and replay whatever we've sent since —
+    // see reconcileLocalPrediction(). The opponent's slice stays purely
+    // interpolated (above/Phase 7); we never predict/replay someone else's input.
+    reconcileLocalPrediction(packet);
+  }
+
+  // Discrete/animation-state fields only — x/y/vx/vy are deliberately NOT touched
+  // here as of Phase 7 (see applyOnlineSnapshot's buffer + updateOnlineInterpolation).
+  function applyOnlinePlayerSlice(p, s){
+    p.onGround = s.onGround;
+    // The server only tells us charging:true/false, not a wall-clock start time, so we
+    // stamp our own local start the moment we first observe the rising edge — enough
+    // for drawPlayer()'s existing charge-gauge fraction to animate correctly for a
+    // remote/opponent player, purely a rendering approximation (never affects timing
+    // the server actually resolves the swing with).
+    if(s.charging && !p.charging) p.chargeStart = performance.now()/1000;
+    p.charging = s.charging;
+    p.swingTimer = s.swingTimer;
+    p.swingKind = s.swingKind;
+    p.swingPowerFrac = s.swingPowerFrac;
+    p.dashTimer = s.dashTimer;
+    p.score = s.score;
+  }
+
+  // ===========================================================================
+  // PHASE 7 — SHUTTLE (AND PLAYER) SYNCHRONIZATION: entity interpolation
+  // ===========================================================================
+  // The server broadcasts SNAPSHOTs at 30Hz; the browser renders at whatever the
+  // display refresh rate is (typically 60+). Applying each snapshot's raw x/y the
+  // instant it arrives (Phase 6's behavior) makes every moving thing visibly "step"
+  // between snapshot updates — most noticeable on the shuttle during a fast smash.
+  //
+  // Standard fix, applied here: render slightly in the past. applyOnlineSnapshot()
+  // (above) buffers every incoming snapshot's raw position/velocity instead of
+  // applying it immediately. Once per rendered frame, this function picks a render
+  // time ONLINE_INTERP_DELAY_MS behind "now", finds the two buffered snapshots that
+  // straddle it, and linearly interpolates left/right/shuttle position and velocity
+  // between them — so motion reads smoothly at 60+fps even though new authoritative
+  // data only arrives ~33ms apart. This never changes WHERE the shuttle actually is
+  // as far as the server/gameplay outcome is concerned (the server already resolved
+  // every collision/bounce/point before this snapshot was ever sent) — it only
+  // changes how the client draws the space *between* two points it already agrees
+  // with the server on.
+  function lerp(a, b, t){ return a + (b - a) * t; }
+
+  function interpEntity(target, a, b, t){
+    target.x = lerp(a.x, b.x, t);
+    target.y = lerp(a.y, b.y, t);
+    target.vx = lerp(a.vx, b.vx, t);
+    target.vy = lerp(a.vy, b.vy, t);
+  }
+
+  function extrapolateEntity(target, sample, aheadSec){
+    target.x = sample.x + sample.vx * aheadSec;
+    target.y = sample.y + sample.vy * aheadSec;
+    target.vx = sample.vx;
+    target.vy = sample.vy;
+  }
+
+  function applyBufferedSample(sample){
+    left.x = sample.left.x; left.y = sample.left.y; left.vx = sample.left.vx; left.vy = sample.left.vy;
+    right.x = sample.right.x; right.y = sample.right.y; right.vx = sample.right.vx; right.vy = sample.right.vy;
+    shuttle.x = sample.shuttle.x; shuttle.y = sample.shuttle.y;
+    shuttle.vx = sample.shuttle.vx; shuttle.vy = sample.shuttle.vy;
+  }
+
+  // Cheap motion trail so the shuttle doesn't look like it teleports between
+  // snapshots — now driven by the smoothly-interpolated per-frame position instead
+  // of once per (slower, steppier) snapshot arrival.
+  function pushOnlineShuttleTrail(){
+    if(shuttle.active){
+      trail.push({x: shuttle.x, y: shuttle.y, kind: shuttle.kind});
+      const maxLen = shuttle.kind === 'smash' ? TRAIL_LENGTH_SMASH : TRAIL_LENGTH;
+      while(trail.length > maxLen) trail.shift();
+    } else {
+      trail.length = 0;
+    }
+  }
+
+  // Called once per rendered frame (from loop(), only while !paused) whenever
+  // onlineMatch is active. Writes the interpolated/extrapolated position straight
+  // onto left/right/shuttle — draw() needs no changes to work for an online match.
+  function updateOnlineInterpolation(){
+    if(!onlineMatch) return;
+    const buf = onlineMatch.snapshotBuffer;
+    if(buf.length === 0) return; // MATCH_START landed but the first SNAPSHOT hasn't yet
+
+    const renderTime = performance.now() - ONLINE_INTERP_DELAY_MS;
+
+    if(buf.length === 1 || renderTime <= buf[0].recvTime){
+      // Not enough history yet (just connected, or the delay window reaches further
+      // back than anything buffered) — hold at the oldest sample we have rather
+      // than guessing at motion we were never actually shown.
+      applyBufferedSample(buf[0]);
+      pushOnlineShuttleTrail();
+      return;
+    }
+
+    const newest = buf[buf.length - 1];
+    if(renderTime >= newest.recvTime){
+      // Buffer ran dry (dropped packet(s) / a network hiccup) — dead-reckon forward
+      // from the newest known velocity for a short grace window, so a single missed
+      // packet doesn't visibly freeze play, then hold in place rather than
+      // extrapolating indefinitely and drifting from whatever the server actually
+      // sends once it catches up.
+      const aheadSec = Math.min(renderTime - newest.recvTime, ONLINE_EXTRAPOLATE_MAX_MS) / 1000;
+      extrapolateEntity(left, newest.left, aheadSec);
+      extrapolateEntity(right, newest.right, aheadSec);
+      extrapolateEntity(shuttle, newest.shuttle, aheadSec);
+      pushOnlineShuttleTrail();
+      return;
+    }
+
+    // Normal case: walk back from the newest buffered sample to find the pair that
+    // straddles renderTime, then lerp between them.
+    let i = buf.length - 2;
+    while(i > 0 && buf[i].recvTime > renderTime) i--;
+    const a = buf[i], b = buf[i + 1];
+    const span = b.recvTime - a.recvTime;
+    const t = span > 0 ? (renderTime - a.recvTime) / span : 0;
+
+    interpEntity(left, a.left, b.left, t);
+    interpEntity(right, a.right, b.right, t);
+    interpEntity(shuttle, a.shuttle, b.shuttle, t);
+    pushOnlineShuttleTrail();
+
+    // Drop fully-consumed snapshots (older than the pair we just used), keeping one
+    // extra as a small safety margin — renderTime only ever moves forward, so
+    // anything before `a` can never be needed again.
+    if(i > 1) buf.splice(0, i - 1);
+  }
+
+  // Discrete EVENT packets drive the same juice the local sim triggers inline
+  // (sound, particles, screen shake, the rally-result overlay, the win screen) —
+  // "celebration" per the multiplayer spec IS this rally-result/point juice; the
+  // codebase has no separate celebration animation system beyond it, online or off.
+  function applyOnlineEvent(packet){
+    if(!onlineMatch) return;
+    const d = packet.data || {};
+    switch(packet.kind){
+      case Protocol.EVENT.POINT:
+        left.score = d.leftScore; right.score = d.rightScore;
+        pointMessage = (d.scorer === 'left' ? 'Left' : 'Right') + ' scores';
+        rallyResultLabel = RALLY_RESULT_LABELS[d.reason] || RALLY_RESULT_LABELS.UNKNOWN_FAULT;
+        playSound('point');
+        break;
+      case Protocol.EVENT.GAME_OVER:
+        if(!onlineMatch.gameOverShown){
+          onlineMatch.gameOverShown = true;
+          left.score = d.leftScore; right.score = d.rightScore;
+          endGame(d.winner === 'left' ? left : right);
+        }
+        break;
+      case Protocol.EVENT.SHAKE:
+        triggerShake(d.mag, d.duration);
+        break;
+      case Protocol.EVENT.HIT: {
+        const color = d.side === 'left' ? '#3b82f6' : '#ec4899';
+        const counts = { smash: 20, dink: 4, float: 9, serve: 8 };
+        playSound('hit');
+        spawnHitParticles(d.x, d.y, counts[d.hitKind] || 8, d.hitKind === 'smash', color);
+        break;
+      }
+      case 'net':
+        spawnHitParticles(d.x, d.y, d.tape ? 7 : 10, false, '#cbd5e1');
+        break;
+      case 'land':
+        spawnHitParticles(d.x, d.y, 10, false, '#94a3b8');
+        break;
+      // EVENT.SERVE: servingSide is already kept current via the snapshot stream —
+      // nothing extra to render.
+      default:
+        break;
+    }
+  }
+
+  // The server closing the socket mid-match (crash/restart) — Phase 10 owns real
+  // reconnect handling; for now, don't leave the client staring at a frozen last
+  // snapshot with no way out. goToMainMenu() below tears down `onlineMatch` too.
+  function onOnlineSocketClosed(){
+    if(!onlineMatch) return;
+    goToMainMenu();
+  }
+
+  // Edge-triggered actions (jump / dash) captured on keydown, cleared the instant
+  // they're consumed by the next predicted tick — see stepOnlinePrediction(). Double-tap
+  // dash detection mirrors tryDash()'s own timing (DASH_WINDOW/DASH_COOLDOWN) exactly,
+  // just to decide whether to SEND a dash intent at all; the server is still the one
+  // that actually applies/cooldown-gates it authoritatively.
+  function handleOnlineKeydown(code, wasDown, now){
+    if(wasDown) return; // ignore auto-repeat, same as the offline handler
+    if(code === keyBindings.p1Jump) onlineMatch.pendingJump = true;
+    if(code === keyBindings.p1Left){
+      const last = onlineMatch.lastTapTime.left;
+      onlineMatch.lastTapTime.left = now;
+      if(now - last <= DASH_WINDOW && now - onlineMatch.lastDashSentTime >= DASH_COOLDOWN){
+        onlineMatch.pendingDash = -1;
+        onlineMatch.lastDashSentTime = now;
+      }
+    }
+    if(code === keyBindings.p1Right){
+      const last = onlineMatch.lastTapTime.right;
+      onlineMatch.lastTapTime.right = now;
+      if(now - last <= DASH_WINDOW && now - onlineMatch.lastDashSentTime >= DASH_COOLDOWN){
+        onlineMatch.pendingDash = 1;
+        onlineMatch.lastDashSentTime = now;
+      }
+    }
+    if(code === keyBindings.p1Hit) onlineMatch.charging = true;
+  }
+  function handleOnlineKeyup(code){
+    if(code === keyBindings.p1Hit) onlineMatch.charging = false;
+  }
+
+  // ===========================================================================
+  // PHASE 8 — CLIENT-SIDE PREDICTION & SERVER RECONCILIATION (local player only)
+  // ===========================================================================
+  // Through Phase 7, the local player's own position came from the same
+  // snapshot-interpolation path as the opponent and the shuttle — meaning even
+  // YOUR OWN movement felt delayed by a full round trip (press a key, wait for
+  // the server to apply it and echo a snapshot back, ~1-3 snapshot intervals
+  // later see yourself move). That's fine for the opponent/shuttle (you have no
+  // faster way to know their true state), but not for your own input.
+  //
+  // Fix, the standard one: predict locally, reconcile against the server.
+  //   1. PREDICT — the instant a key is pressed/held, step a local headless copy
+  //      of just this player's movement (Sim.updatePlayer/tryJump/applyDash —
+  //      NEVER shuttle or hit resolution, which stay purely server-authoritative;
+  //      see the module banner on shared/simulation.js) and render from that
+  //      immediately, without waiting for the server at all.
+  //   2. BUFFER — remember every input command sent but not yet acked.
+  //   3. RECONCILE — each snapshot carries ackSeq[mySide], the highest input the
+  //      server has actually applied. Drop every buffered input at or before
+  //      that seq (confirmed), snap the prediction to the server's authoritative
+  //      x/y/vx/vy/onGround/dashTimer for this side (the corrected baseline),
+  //      then REPLAY whatever inputs are still unacked on top of it. On a clean
+  //      connection this replay is usually a no-op (0-1 inputs) and the
+  //      correction is imperceptible; under packet loss/latency it's what keeps
+  //      "instant" input from silently drifting away from what the server
+  //      actually did.
+  //
+  // Input is stepped/sent on a FIXED cadence (Protocol.TICK_DT, matching the
+  // server's own tick rate) via an accumulator in loop(), not once per rendered
+  // frame — see the loop() call site. That's what makes replay exact: the client
+  // and server step the identical function over the identical dt per command.
+
+  // Minimal stand-in for the `world` argument Sim.tryJump/applyDash/updatePlayer
+  // expect — they only ever read `.state` off it (to gate jumping/dashing/the
+  // serve-box clamp to 'rally'/'serve'). `state` here is the same global kept
+  // immediately in sync from every snapshot's discrete fields (applyOnlineSnapshot
+  // above), so this always matches what the server just told us, tick to tick.
+  const predictionWorldStub = { state: 'serve' };
+
+  // Apply one input command's movement-relevant effects to a Sim player object —
+  // used both live (stepOnlinePrediction) and during replay (reconcileLocalPrediction).
+  // Deliberately mirrors server/Room.js's _applyInput EXACTLY for the fields it
+  // covers (held movement + jump/dash edges), just without the charge/hit branch
+  // (that's shuttle-affecting and stays server-only — see the Phase 8 banner above).
+  function applyPredictedInput(p, cmd, dt, nowSec){
+    predictionWorldStub.state = state;
+    p.inLeft = !!cmd.left;
+    p.inRight = !!cmd.right;
+    if(cmd.jump) Sim.tryJump(predictionWorldStub, p);
+    if(cmd.dash === 1 || cmd.dash === -1) Sim.applyDash(predictionWorldStub, p, cmd.dash, nowSec);
+    Sim.updatePlayer(predictionWorldStub, p, dt);
+  }
+
+  // Called from loop()'s fixed-tick accumulator — one call = one simulated tick =
+  // one INPUT packet, exactly matching the server's own tick rate (see the Phase 8
+  // banner above for why that 1:1 cadence matters for replay to reconcile cleanly).
+  function stepOnlinePrediction(dt){
+    if(!onlineMatch) return;
+    const nowSec = performance.now() / 1000;
+    onlineMatch.inputSeq++;
+    const cmd = {
+      seq: onlineMatch.inputSeq,
+      left: !!keys[keyBindings.p1Left],
+      right: !!keys[keyBindings.p1Right],
+      jump: onlineMatch.pendingJump,
+      dash: onlineMatch.pendingDash,
+      charge: onlineMatch.charging
+    };
+    onlineMatch.pendingJump = false;
+    onlineMatch.pendingDash = 0;
+
+    // Predict immediately — don't wait for the round trip.
+    applyPredictedInput(onlineMatch.predicted, cmd, dt, nowSec);
+
+    // Remember it for reconciliation once the server's ack for it comes back.
+    onlineMatch.pendingInputs.push({ cmd: cmd, dt: dt });
+    if(onlineMatch.pendingInputs.length > ONLINE_PENDING_INPUTS_MAX) onlineMatch.pendingInputs.shift();
+
+    if(onlineMatch.net.connected){
+      // NOTE: `seq` lives INSIDE `cmd`, not as a sibling — server/index.js's dispatcher
+      // forwards packet.cmd (not the whole packet) into Room.queueInput/_applyInput,
+      // both of which read cmd.seq off that same object (confirmed against
+      // server/test-phase2.js, the actual working reference, since shared/protocol.js's
+      // own packet-flow comment documents seq as a sibling of cmd — the comment is stale).
+      onlineMatch.net.send(Protocol.C2S.INPUT, { cmd: cmd });
+    }
+  }
+
+  // Called once per incoming SNAPSHOT (from applyOnlineSnapshot). Re-baselines the
+  // local prediction to the server's authoritative state for OUR side and replays
+  // every input the server hasn't acked yet on top of it.
+  function reconcileLocalPrediction(packet){
+    const side = onlineMatch.mySide;
+    const authoritative = packet[side];
+    const ackSeq = (packet.ackSeq && packet.ackSeq[side]) || 0;
+
+    // Confirmed inputs — the server has already folded these into `authoritative`.
+    const pending = onlineMatch.pendingInputs;
+    while(pending.length && pending[0].cmd.seq <= ackSeq) pending.shift();
+
+    const p = onlineMatch.predicted;
+    p.x = authoritative.x;
+    p.y = authoritative.y;
+    p.vx = authoritative.vx;
+    p.vy = authoritative.vy;
+    p.onGround = authoritative.onGround;
+    p.dashTimer = authoritative.dashTimer;
+    // dashDir/lastDashTime are server-internal bookkeeping the snapshot
+    // deliberately omits (shared/snapshot.js) — this client's own copies are left
+    // as-is. They only ever influence the brief in-flight replay window below (and
+    // the live prediction going forward), never the authoritative dash itself, so
+    // an approximate/local-only value here is a rendering nicety, not a fairness issue.
+
+    const nowSec = performance.now() / 1000;
+    for(let i = 0; i < pending.length; i++){
+      applyPredictedInput(p, pending[i].cmd, pending[i].dt, nowSec);
+    }
+  }
+
+  // Called once per rendered frame (from loop(), after updateOnlineInterpolation)
+  // to write the current prediction onto the same left/right object draw() reads —
+  // overriding, for OUR side only, whatever the Phase 7 interpolation step just
+  // wrote from the (round-trip-delayed) snapshot buffer.
+  function applyLocalPrediction(){
+    if(!onlineMatch) return;
+    const mine = onlineMatch.mySide === 'left' ? left : right;
+    const p = onlineMatch.predicted;
+    mine.x = p.x; mine.y = p.y;
+    mine.vx = p.vx; mine.vy = p.vy;
+    mine.onGround = p.onGround;
+  }
+
+  // Mid-pause sub-flows: when the player opens "Change Characters" or "Settings"
+  // from the pause menu, we route through the same overlays the main menu uses
+  // (character select / background select / options panel) but the underlying
+  // match is still mid-play behind them. These flags let togglePause() (and the
+  // relevant "back" links) know to return to the PAUSE menu instead of treating
+  // Escape/Back as if we were still sitting at the title screen.
+  let changingCharactersFromPause = false;
+  let pauseSettingsOpen = false;
+  let settingsReturnTarget = 'mainMenu'; // 'mainMenu' | 'pause'
+
   function togglePause(){
+    if(pauseSettingsOpen){
+      // Esc while viewing Settings-from-pause backs out to the pause menu
+      // rather than unpausing the match hidden behind it.
+      closePauseSettingsToPause();
+      return;
+    }
+    if(changingCharactersFromPause) return; // mid character/background re-select — ignore Esc
     if(state === 'start' || state === 'gameOver') return;
     paused = !paused;
     document.getElementById('pauseOverlay').classList.toggle('hidden', !paused);
+    // Restarting or re-picking characters only makes sense for a purely local match —
+    // an online match's characters/score/state are server-authoritative, so those two
+    // actions are hidden rather than left to silently desync the client from the match
+    // still running (for both players) on the server. Resume / Settings / Main Menu
+    // all remain valid either way.
+    document.getElementById('pauseRestartBtn').classList.toggle('hidden', !!onlineMatch);
+    document.getElementById('pauseChangeCharBtn').classList.toggle('hidden', !!onlineMatch);
   }
 
   document.getElementById('resumeBtn').addEventListener('click', ()=>{
@@ -2969,8 +4894,57 @@
     document.getElementById('pauseOverlay').classList.add('hidden');
     restartGame();
   });
+
+  // "Change Characters" from the pause menu reuses the normal character-select
+  // flow (which already adapts its labels/stages to the current `mode` — vs AI,
+  // 2-player, AI vs AI). The match stays paused (not reset to 'start') the whole
+  // time so the simulation can't keep running behind the character/background/VS
+  // overlays; startGame() at the end of that flow un-pauses and starts fresh.
+  document.getElementById('pauseChangeCharBtn').addEventListener('click', ()=>{
+    document.getElementById('pauseOverlay').classList.add('hidden');
+    changingCharactersFromPause = true;
+    startCharacterSelect();
+  });
+
+  function openSettingsFromPause(){
+    document.getElementById('pauseOverlay').classList.add('hidden');
+    document.getElementById('mainMenuOptions').classList.add('hidden');
+    document.getElementById('difficultyMenuOptions').classList.add('hidden');
+    document.getElementById('menuIntro').classList.add('hidden');
+    document.getElementById('optionsMenuOptions').classList.remove('hidden');
+    document.getElementById('startOverlay').classList.remove('hidden');
+    settingsReturnTarget = 'pause';
+    pauseSettingsOpen = true;
+  }
+
+  function closePauseSettingsToPause(){
+    document.getElementById('startOverlay').classList.add('hidden');
+    document.getElementById('optionsMenuOptions').classList.add('hidden');
+    document.getElementById('controlsMenuOptions').classList.add('hidden');
+    document.getElementById('mainMenuOptions').classList.remove('hidden');
+    document.getElementById('menuIntro').classList.remove('hidden');
+    document.getElementById('pauseOverlay').classList.remove('hidden');
+    pauseSettingsOpen = false;
+    settingsReturnTarget = 'mainMenu';
+  }
+
+  document.getElementById('pauseSettingsBtn').addEventListener('click', openSettingsFromPause);
+
   function goToMainMenu(){
+    // Leaving an online match (game-over "Main Menu" button, or any future path back
+    // here) must also free the server-side seat and close the socket — otherwise the
+    // room would think this player is still connected/playing.
+    if(onlineMatch){
+      try {
+        onlineMatch.net.send(Protocol.C2S.LEAVE_LOBBY, {});
+        onlineMatch.net.disconnect();
+      } catch(_e){ /* socket already gone */ }
+      onlineMatch = null;
+    }
     paused = false;
+    changingCharactersFromPause = false;
+    pauseSettingsOpen = false;
+    settingsReturnTarget = 'mainMenu';
     document.getElementById('pauseOverlay').classList.add('hidden');
     document.getElementById('gameOverOverlay').classList.add('hidden');
     document.getElementById('serveTag').classList.add('hidden');
@@ -2981,6 +4955,9 @@
     document.getElementById('mainMenuOptions').classList.remove('hidden');
     document.getElementById('difficultyMenuOptions').classList.add('hidden');
     document.getElementById('optionsMenuOptions').classList.add('hidden');
+    document.getElementById('onlineMenuOptions').classList.add('hidden');
+    document.getElementById('joinLobbyOptions').classList.add('hidden');
+    document.getElementById('waitingRoomOptions').classList.add('hidden');
     document.getElementById('menuIntro').classList.remove('hidden');
     
     document.getElementById('startOverlay').classList.remove('hidden');
@@ -2990,36 +4967,104 @@
   document.getElementById('mainMenuBtn').addEventListener('click', goToMainMenu);
   document.getElementById('gameOverMenuBtn').addEventListener('click', goToMainMenu);
 
-  // Screen Auto-scaling logic
-  // selectedResolution === null means "Auto" — fit whatever the real window/screen offers.
-  // When a fixed resolution is picked instead, the game is sized as if displayed on a screen
-  // of exactly that resolution, regardless of the real window size — this is what makes the
-  // setting actually visible/effective rather than silently matching whatever "Auto" already does.
+
+  // Screen sizing logic — split into two independent concerns:
+  //  1. updateStageSize(): the Resolution setting. selectedResolution === null means
+  //     "Auto" — the #stage backdrop (the gradient "monitor") just fills the real
+  //     browser viewport. Picking a preset instead sizes #stage to simulate a screen
+  //     of exactly that resolution (clamped to the real window so it never overflows
+  //     and forces a scrollbar). This ONLY resizes the decorative backdrop — it never
+  //     touches #wrap (the actual game).
+  //  2. adjustScale(): the game itself. #wrap has one fixed natural size/aspect ratio
+  //     and is never scaled UP because of a resolution pick — resolution is purely a
+  //     backdrop setting now. The only reason #wrap ever shrinks is if the real browser
+  //     window is too small to show it at natural size (small laptop screens, mobile,
+  //     a narrow/short window) — in which case it's scaled down uniformly (aspect ratio
+  //     preserved) just enough to stay fully visible, and never scaled past 1x.
   let selectedResolution = null;
+
+  function updateStageSize(){
+    const stage = document.getElementById('stage');
+    if (!stage) return;
+    if (!selectedResolution) {
+      stage.style.width = '100vw';
+      stage.style.height = '100vh';
+    } else {
+      // Clamped to the real window so picking a resolution bigger than the actual
+      // browser viewport never introduces scrollbars/overflow — it can only ever
+      // make the backdrop smaller than the window, never bigger.
+      const w = Math.min(selectedResolution.w, window.innerWidth);
+      const h = Math.min(selectedResolution.h, window.innerHeight);
+      stage.style.width = w + 'px';
+      stage.style.height = h + 'px';
+    }
+  }
 
   function adjustScale() {
     const wrap = document.getElementById('wrap');
     if (!wrap) return;
-    
-    const targetWidth = 1320;
-    const targetHeight = 860;
-    
-    const viewportWidth = selectedResolution ? selectedResolution.w : window.innerWidth;
-    const viewportHeight = selectedResolution ? selectedResolution.h : window.innerHeight;
-    
-    const scaleX = (viewportWidth * 0.96) / targetWidth;
-    const scaleY = (viewportHeight * 0.96) / targetHeight;
-    const scale = Math.min(scaleX, scaleY, 1.4); // allow scale up to 1.4x max
-    
+
+    // Measure the wrap's TRUE, unscaled footprint instead of assuming a fixed
+    // 1320x860 guess. #wrap has a fixed CSS width:1300px with no max-width,
+    // so it always lays out — and reflows its children like the menu's
+    // columns and the stadium preview — at that one true design size. That
+    // keeps naturalW/naturalH (and the ratio between them) constant no
+    // matter the window shape, so the uniform scale computed below always
+    // shrinks width and height together instead of the browser clamping
+    // width on its own first and distorting the layout.
+    const prevTransform = wrap.style.transform;
+    wrap.style.transform = 'none';
+    const naturalW = wrap.offsetWidth;
+    const naturalH = wrap.offsetHeight;
+    wrap.style.transform = prevTransform;
+
+    // Fit purely against the REAL browser window — deliberately ignores
+    // selectedResolution entirely now, since resolution only resizes the backdrop
+    // (see updateStageSize above), not the game. Small safety margin just absorbs
+    // rounding/subpixel drift.
+    const SAFE_MARGIN = 0.97;
+    const scaleX = (window.innerWidth * SAFE_MARGIN) / naturalW;
+    const scaleY = (window.innerHeight * SAFE_MARGIN) / naturalH;
+    // Capped at 1 — "fixed" means the game never grows past its natural design
+    // size, it can only shrink to stay fully visible on a smaller window.
+    const scale = Math.min(scaleX, scaleY, 1);
+
     wrap.style.transform = `scale(${scale})`;
     wrap.style.transformOrigin = 'center center';
   }
-  
-  window.addEventListener('resize', adjustScale);
-  window.addEventListener('DOMContentLoaded', adjustScale);
-  setTimeout(adjustScale, 50);
 
-  // Resolution option buttons
+  function refitScreen(){
+    updateStageSize();
+    adjustScale();
+  }
+
+  window.addEventListener('resize', refitScreen);
+  window.addEventListener('DOMContentLoaded', refitScreen);
+  setTimeout(refitScreen, 50);
+
+  // ResizeObserver on the real page box — belt-and-suspenders alongside the
+  // 'resize' listener above. Docking/undocking browser DevTools (or a mobile
+  // on-screen keyboard, split-screen, etc.) changes the available viewport
+  // without always firing a plain window 'resize' event promptly, which
+  // could leave the game scaled for a viewport size that no longer exists —
+  // showing either an oversized gutter on the sides or, in the opposite
+  // case, actual clipping. Observing documentElement's box directly catches
+  // every one of these changes and re-fits immediately.
+  if (typeof ResizeObserver !== 'undefined') {
+    const scaleResizeObserver = new ResizeObserver(function(){ refitScreen(); });
+    scaleResizeObserver.observe(document.documentElement);
+  }
+
+  // Fonts swapping in after load can change #wrap's natural height slightly
+  // (line-height/metrics differ between the fallback and web font) — re-fit
+  // once they're actually ready so the very first paint isn't sized against
+  // a slightly-wrong measurement.
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(function(){ adjustScale(); }).catch(function(){});
+  }
+
+  // Resolution option buttons — now only resize the #stage backdrop; the game
+  // itself (#wrap) is completely unaffected by this choice.
   document.querySelectorAll('.resOption').forEach(function(btn){
     btn.addEventListener('click', function(){
       const res = btn.getAttribute('data-res');
@@ -3031,7 +5076,7 @@
       }
       document.querySelectorAll('.resOption').forEach(function(b){ b.classList.remove('active'); });
       btn.classList.add('active');
-      adjustScale();
+      updateStageSize();
     });
   });
 
@@ -3158,7 +5203,18 @@
     startCharacterSelect();
   });
   
+  // the difficulty submenu serves both AI modes — this remembers which button opened it
+  let pendingAIMode = 'ai';
+
   document.getElementById('btnAI').addEventListener('click', ()=>{
+    pendingAIMode = 'ai';
+    document.getElementById('mainMenuOptions').classList.add('hidden');
+    document.getElementById('difficultyMenuOptions').classList.remove('hidden');
+    document.getElementById('menuIntro').classList.add('hidden');
+  });
+
+  document.getElementById('btnAIvAI').addEventListener('click', ()=>{
+    pendingAIMode = 'aivai';
     document.getElementById('mainMenuOptions').classList.add('hidden');
     document.getElementById('difficultyMenuOptions').classList.remove('hidden');
     document.getElementById('menuIntro').classList.add('hidden');
@@ -3170,6 +5226,325 @@
     document.getElementById('menuIntro').classList.remove('hidden');
   });
 
+  // ===========================================================================
+  // PHASE 5 — CONNECTION FLOW (Play Online: Host/Join Lobby, Waiting Room)
+  // PHASE 9 — READY SYSTEM (rematch) is layered on top of this same IIFE,
+  //   further down (see requestOnlineRematch), since it needs this exact
+  //   net/lastLobbyState/Waiting-Room-DOM closure rather than duplicating it.
+  // ===========================================================================
+  // Scope, deliberately: get a player from the main menu into a live waiting
+  // room over a real socket to the dedicated server — lobby state, room codes,
+  // ready-up, host-start — using the Phase 1-4 server that's already built and
+  // tested. What happens ONCE the server sends MATCH_START (actually rendering
+  // a synced online match: remote player, shuttle, prediction) is Phase 6-8,
+  // built elsewhere in this file; and what happens once THAT match ends —
+  // sending the room back through this same Waiting Room for a rematch — is
+  // Phase 9. See CHANGELOG for what's covered.
+  (function(){
+    const onlineMenuEl = document.getElementById('onlineMenuOptions');
+    const joinMenuEl = document.getElementById('joinLobbyOptions');
+    const waitingRoomEl = document.getElementById('waitingRoomOptions');
+    const waitingRoomLobbyView = document.getElementById('waitingRoomLobbyView');
+    const waitingRoomMatchStartedView = document.getElementById('waitingRoomMatchStartedView');
+
+    const onlineNameInput = document.getElementById('onlineNameInput');
+    const onlineMenuStatus = document.getElementById('onlineMenuStatus');
+    const joinCodeInput = document.getElementById('joinCodeInput');
+    const joinLobbyStatus = document.getElementById('joinLobbyStatus');
+    const waitingRoomCodeEl = document.getElementById('waitingRoomCode');
+    const waitingRoomPingEl = document.getElementById('waitingRoomPing');
+    const waitingRoomSlotsEl = document.getElementById('waitingRoomSlots');
+    const waitingRoomStatusEl = document.getElementById('waitingRoomStatus');
+    const btnToggleReady = document.getElementById('btnToggleReady');
+    const btnHostStart = document.getElementById('btnHostStart');
+
+    let net = null;               // NetClient instance, created lazily on first attempt
+    let pendingAction = null;     // { type:'create' } | { type:'join', code } — fired once WELCOME arrives
+    let lastLobbyState = null;    // most recent LOBBY_STATE packet from the server
+    let myReady = false;
+
+    function showOnlySubmenu(el){
+      ['mainMenuOptions','difficultyMenuOptions','optionsMenuOptions','controlsMenuOptions',
+       'onlineMenuOptions','joinLobbyOptions','waitingRoomOptions'].forEach(function(id){
+        document.getElementById(id).classList.toggle('hidden', document.getElementById(id) !== el);
+      });
+      document.getElementById('menuIntro').classList.add('hidden');
+    }
+
+    function playerDisplayName(){
+      const v = (onlineNameInput.value || '').trim();
+      return v ? v.slice(0, 16) : 'Player';
+    }
+
+    // A bare double-clicked index.html has no server behind it to open a socket
+    // to (NetClient derives the ws:// URL from location.host, which is empty
+    // under file://). Fail clearly instead of a confusing silent socket error.
+    function onlineAvailable(){
+      return location.protocol === 'http:' || location.protocol === 'https:';
+    }
+
+    function ensureNetClient(){
+      if (net) return net;
+      net = new NetClient();
+
+      net.on('lobbyState', function(packet){
+        lastLobbyState = packet;
+        // Phase 9: either side's REMATCH request flips the room from GAME_OVER
+        // back to LOBBY server-side. Whichever player DIDN'T click "Play Again"
+        // themselves is still sitting on the (now-stale) game-over screen —
+        // this is what brings them along into the Waiting Room too, so both
+        // sides land on the same screen without a second explicit action.
+        // Idempotent: harmless if this client already made the same jump itself
+        // (requestOnlineRematch below), since gameOverOverlay would already be hidden.
+        if (onlineMatch && packet.phase === Protocol.PHASE.LOBBY &&
+            !document.getElementById('gameOverOverlay').classList.contains('hidden')) {
+          document.getElementById('gameOverOverlay').classList.add('hidden');
+          document.getElementById('serveTag').classList.add('hidden');
+          document.getElementById('startOverlay').classList.remove('hidden');
+          enterWaitingRoom();
+        }
+        renderWaitingRoom();
+      });
+      net.on('playerJoined', function(){ /* lobbyState follows right behind this; nothing extra to do */ });
+      net.on('playerLeft', function(){ /* lobbyState follows right behind this; nothing extra to do */ });
+      net.on('matchStart', function(packet){
+        // Phase 6: this now actually starts the synced match (see beginOnlineMatch and
+        // the PHASE 6 block above) instead of just flipping to a placeholder screen.
+        // Phase 9: also how a REMATCH's eventual START_MATCH gets back into a live
+        // match — beginOnlineMatch() itself hides startOverlay (and therefore the
+        // Waiting Room shown underneath it), so no extra teardown is needed here.
+        beginOnlineMatch(net, packet);
+      });
+      net.on('pong', function(){
+        waitingRoomPingEl.textContent = 'Ping: ' + net.ping + ' ms';
+      });
+      net.on('error', function(packet){
+        // Server-level protocol error (roomNotFound, roomFull, notHost, ...), not a
+        // socket error — surface it wherever the player currently is.
+        const msg = packet.message || packet.code || 'Something went wrong.';
+        if (!joinMenuEl.classList.contains('hidden')) setStatus(joinLobbyStatus, msg, 'error');
+        else if (!waitingRoomEl.classList.contains('hidden')) setStatus(waitingRoomStatusEl, msg, 'error');
+        else if (!document.getElementById('gameOverOverlay').classList.contains('hidden')) {
+          // Phase 9: a REMATCH request came back as an error (e.g. the
+          // opponent already left) while still on the victory screen —
+          // restore the button instead of leaving it stuck on
+          // "Requesting Rematch…" forever with no way to retry.
+          const btn = document.getElementById('restartBtn');
+          btn.disabled = false;
+          btn.textContent = 'Play Again';
+        }
+        else setStatus(onlineMenuStatus, msg, 'error');
+      });
+      net.on('close', function(){
+        // Dropped mid-lobby (server restart, network loss). Reconnect attempts are
+        // NetClient's job (Phase 10 polish); for now just tell the player plainly
+        // rather than leaving a frozen waiting room with no explanation.
+        if (!waitingRoomEl.classList.contains('hidden')) {
+          setStatus(waitingRoomStatusEl, 'Disconnected from server.', 'error');
+        } else if (!document.getElementById('gameOverOverlay').classList.contains('hidden')) {
+          const btn = document.getElementById('restartBtn');
+          btn.disabled = false;
+          btn.textContent = 'Play Again';
+        }
+      });
+      net.on('welcome', function(){
+        if (!pendingAction) return;
+        const action = pendingAction;
+        pendingAction = null;
+        if (action.type === 'create') {
+          net.send(Protocol.C2S.CREATE_LOBBY, {});
+        } else if (action.type === 'join') {
+          net.send(Protocol.C2S.JOIN_LOBBY, { code: action.code, name: playerDisplayName() });
+        }
+      });
+      return net;
+    }
+
+    function setStatus(el, text, kind){
+      el.textContent = text || '';
+      el.classList.toggle('error', kind === 'error');
+      el.classList.toggle('ok', kind === 'ok');
+    }
+
+    function renderWaitingRoom(){
+      const s = lastLobbyState;
+      if (!s) return;
+      waitingRoomCodeEl.textContent = s.code;
+      const isHost = s.hostId === net.clientId;
+      const mySlot = s.players.find(function(p){ return p.clientId === net.clientId; });
+      myReady = !!(mySlot && mySlot.ready);
+
+      waitingRoomSlotsEl.innerHTML = '';
+      s.players.forEach(function(p){
+        const card = document.createElement('div');
+        card.className = 'playerSlotCard' + (p.occupied ? ' filled' : '') + (p.occupied && p.ready ? ' readyState' : '');
+        const nameHtml = p.occupied
+          ? escapeHtml(p.name) + (p.isHost ? ' <span class="hostBadgeSmall">HOST</span>' : '')
+          : '<span class="empty">Waiting for player…</span>';
+        const statusHtml = p.occupied
+          ? '<span class="playerSlotStatus ' + (p.ready ? 'ready">READY' : 'notReady">NOT READY') + '</span>'
+          : '';
+        card.innerHTML = '<span class="playerSlotName">' + nameHtml + '</span>' + statusHtml;
+        waitingRoomSlotsEl.appendChild(card);
+      });
+
+      btnToggleReady.textContent = myReady ? 'Not Ready' : 'Ready';
+      const bothReady = s.players.length === 2 && s.players.every(function(p){ return p.occupied && p.ready; });
+      btnHostStart.style.display = isHost ? '' : 'none';
+      btnHostStart.disabled = !bothReady;
+      setStatus(waitingRoomStatusEl, isHost && !bothReady ? 'Waiting for both players to ready up…' : '', 'info');
+    }
+
+    function escapeHtml(s){
+      return String(s).replace(/[&<>"']/g, function(c){
+        return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+      });
+    }
+
+    function enterWaitingRoom(){
+      waitingRoomLobbyView.classList.remove('hidden');
+      waitingRoomMatchStartedView.classList.add('hidden');
+      showOnlySubmenu(waitingRoomEl);
+    }
+
+    function leaveOnlineFlow(backTo){
+      if (net) { net.send(Protocol.C2S.LEAVE_LOBBY, {}); net.disconnect(); net = null; }
+      lastLobbyState = null;
+      myReady = false;
+      // Phase 9: this Waiting Room can now also be reached AFTER a match
+      // (the rematch flow), where onlineMatch from that finished match is
+      // still set — tear it down the same way goToMainMenu() does, so the
+      // render loop stops treating this as a live online session and the
+      // next "Play vs AI" / "Local Multiplayer" / fresh "Play Online" starts
+      // clean. A no-op when leaving the ordinary pre-match lobby, where
+      // onlineMatch was never set in the first place.
+      if (onlineMatch) {
+        onlineMatch = null;
+        document.getElementById('gameOverOverlay').classList.add('hidden');
+        document.getElementById('serveTag').classList.add('hidden');
+        state = 'start';
+      }
+      showOnlySubmenu(backTo);
+      if (backTo === document.getElementById('mainMenuOptions')) {
+        document.getElementById('menuIntro').classList.remove('hidden');
+      }
+    }
+
+    // ===========================================================================
+    // PHASE 9 — READY SYSTEM (rematch from the victory screen)
+    // ===========================================================================
+    // "Play Again" on an online game-over screen doesn't reset anything locally
+    // (the server owns score/state — see restartGame() vs this). It just asks
+    // the server for a rematch; the server flips the room back to phase LOBBY
+    // (Lobby.rematch) and broadcasts lobbyState, which both:
+    //   (a) this client's own 'lobbyState' handler above uses to jump straight
+    //       into the Waiting Room, and
+    //   (b) the OTHER player's identical handler uses to follow along, even
+    //       though they didn't click anything themselves yet.
+    // From there it's exactly the ordinary pre-match flow this IIFE already
+    // built: Ready up, host presses Start Match, 'matchStart' fires
+    // beginOnlineMatch() again. No second "ready system" was built — this
+    // reuses the first one end to end.
+    requestOnlineRematch = function(){
+      if (!net || !net.connected) return;
+      const btn = document.getElementById('restartBtn');
+      btn.disabled = true;
+      btn.textContent = 'Requesting Rematch…';
+      net.send(Protocol.C2S.REMATCH, {});
+      // The actual screen transition happens via the 'lobbyState' handler
+      // above once the server confirms it (see the Idempotent note there) —
+      // not here — so both players always follow the same server-driven path
+      // rather than this client jumping ahead of a request that could still
+      // come back as an error (e.g. the opponent left a beat earlier).
+    };
+
+    // ---- Main Menu -> Play Online ------------------------------------------
+    document.getElementById('btnOnline').addEventListener('click', function(){
+      setStatus(onlineMenuStatus, '', null);
+      showOnlySubmenu(onlineMenuEl);
+    });
+    document.getElementById('btnOnlineBack').addEventListener('click', function(){
+      showOnlySubmenu(document.getElementById('mainMenuOptions'));
+      document.getElementById('menuIntro').classList.remove('hidden');
+    });
+
+    // ---- Host Lobby ----------------------------------------------------------
+    document.getElementById('btnHostLobby').addEventListener('click', function(){
+      if (!onlineAvailable()) {
+        setStatus(onlineMenuStatus, 'Online play needs the dedicated server — open this page via the server, not as a local file.', 'error');
+        return;
+      }
+      setStatus(onlineMenuStatus, 'Connecting…', null);
+      pendingAction = { type: 'create' };
+      const n = ensureNetClient();
+      n.on('lobbyState', function onFirst(){
+        n.off('lobbyState', onFirst);
+        enterWaitingRoom();
+      });
+      n.connect(playerDisplayName());
+    });
+
+    // ---- Join Lobby ----------------------------------------------------------
+    document.getElementById('btnGoJoinLobby').addEventListener('click', function(){
+      setStatus(joinLobbyStatus, '', null);
+      joinCodeInput.value = '';
+      showOnlySubmenu(joinMenuEl);
+      joinCodeInput.focus();
+    });
+    document.getElementById('btnJoinLobbyBack').addEventListener('click', function(){
+      showOnlySubmenu(onlineMenuEl);
+    });
+    joinCodeInput.addEventListener('input', function(){
+      joinCodeInput.value = joinCodeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    });
+    joinCodeInput.addEventListener('keydown', function(e){
+      if (e.key === 'Enter') document.getElementById('btnJoinLobbySubmit').click();
+    });
+    document.getElementById('btnJoinLobbySubmit').addEventListener('click', function(){
+      const code = joinCodeInput.value.trim();
+      if (code.length !== 6) { setStatus(joinLobbyStatus, 'Enter the full 6-character code.', 'error'); return; }
+      if (!onlineAvailable()) {
+        setStatus(joinLobbyStatus, 'Online play needs the dedicated server — open this page via the server, not as a local file.', 'error');
+        return;
+      }
+      setStatus(joinLobbyStatus, 'Connecting…', null);
+      pendingAction = { type: 'join', code: code };
+      const n = ensureNetClient();
+      n.on('lobbyState', function onFirst(){
+        n.off('lobbyState', onFirst);
+        enterWaitingRoom();
+      });
+      n.connect(playerDisplayName());
+    });
+
+    // ---- Waiting Room ----------------------------------------------------------
+    document.getElementById('btnCopyRoomCode').addEventListener('click', function(){
+      const code = waitingRoomCodeEl.textContent;
+      const btn = document.getElementById('btnCopyRoomCode');
+      const flash = function(){ btn.classList.add('copied'); btn.textContent = 'Copied!'; setTimeout(function(){ btn.classList.remove('copied'); btn.textContent = 'Copy Code'; }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(flash).catch(function(){});
+      } else {
+        flash(); // clipboard API unavailable (very old browser) — code is already big and selectable on screen
+      }
+    });
+    btnToggleReady.addEventListener('click', function(){
+      if (!net) return;
+      myReady = !myReady;
+      net.send(Protocol.C2S.READY, { ready: myReady });
+    });
+    btnHostStart.addEventListener('click', function(){
+      if (!net || btnHostStart.disabled) return;
+      net.send(Protocol.C2S.START_MATCH, {});
+    });
+    document.getElementById('btnLeaveLobby').addEventListener('click', function(){
+      leaveOnlineFlow(document.getElementById('mainMenuOptions'));
+    });
+    document.getElementById('btnMatchStartedBack').addEventListener('click', function(){
+      leaveOnlineFlow(document.getElementById('mainMenuOptions'));
+    });
+  })();
+
   document.getElementById('btnOptions').addEventListener('click', ()=>{
     document.getElementById('mainMenuOptions').classList.add('hidden');
     document.getElementById('optionsMenuOptions').classList.remove('hidden');
@@ -3177,6 +5552,10 @@
   });
 
   document.getElementById('btnOptionsBack').addEventListener('click', ()=>{
+    if(settingsReturnTarget === 'pause'){
+      closePauseSettingsToPause();
+      return;
+    }
     document.getElementById('optionsMenuOptions').classList.add('hidden');
     document.getElementById('mainMenuOptions').classList.remove('hidden');
     document.getElementById('menuIntro').classList.remove('hidden');
@@ -3185,31 +5564,15 @@
   function updateFullscreenButtonText() {
     const btn = document.getElementById('btnFullscreen');
     if (btn) {
-      if (document.fullscreenElement) {
-        btn.textContent = 'EXIT FULLSCREEN';
-      } else {
-        btn.textContent = 'ENTER FULLSCREEN';
-      }
+      btn.textContent = fsElement() ? 'EXIT FULLSCREEN' : 'ENTER FULLSCREEN';
     }
   }
 
-  document.getElementById('btnFullscreen').addEventListener('click', ()=>{
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => {
-        updateFullscreenButtonText();
-      }).catch(err => {
-        console.log(`Error attempting to enable fullscreen: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen().then(() => {
-        updateFullscreenButtonText();
-      }).catch(err => {
-        console.log(`Error exit fullscreen: ${err.message}`);
-      });
-    }
-  });
+  document.getElementById('btnFullscreen').addEventListener('click', toggleFullscreen);
 
-  document.addEventListener('fullscreenchange', updateFullscreenButtonText);
+  ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange'].forEach(function(ev){
+    document.addEventListener(ev, updateFullscreenButtonText);
+  });
 
   document.getElementById('btnAdvancedControls').addEventListener('click', ()=>{
     advancedControlsEnabled = !advancedControlsEnabled;
@@ -3222,21 +5585,60 @@
       updateKeybindButtons();
     });
   });
-  document.getElementById('btnResetKeybinds').addEventListener('click', function(){
-    keyBindings = Object.assign({}, DEFAULT_KEY_BINDINGS);
+  document.getElementById('btnResetBasicKeybinds').addEventListener('click', function(){
+    BASIC_BINDING_ACTIONS.forEach(function(a){ keyBindings[a] = DEFAULT_KEY_BINDINGS[a]; });
+    listeningForAction = null;
+    updateKeybindButtons();
+    refreshControlsHints();
+  });
+  document.getElementById('btnResetAdvancedKeybinds').addEventListener('click', function(){
+    ADVANCED_BINDING_ACTIONS.forEach(function(a){ keyBindings[a] = DEFAULT_KEY_BINDINGS[a]; });
     listeningForAction = null;
     updateKeybindButtons();
   });
   updateKeybindButtons();
+  refreshControlsHints();
+
+  document.getElementById('btnCustomizeControls').addEventListener('click', ()=>{
+    document.getElementById('optionsMenuOptions').classList.add('hidden');
+    document.getElementById('controlsMenuOptions').classList.remove('hidden');
+  });
+
+  document.getElementById('btnControlsBack').addEventListener('click', ()=>{
+    listeningForAction = null;
+    document.getElementById('controlsMenuOptions').classList.add('hidden');
+    document.getElementById('optionsMenuOptions').classList.remove('hidden');
+    updateKeybindButtons();
+  });
+
+  document.querySelectorAll('.controlsTabBtn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.controlsTabBtn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      const tab = btn.getAttribute('data-tab');
+      document.getElementById('basicControlsPanel').classList.toggle('hidden', tab !== 'basic');
+      document.getElementById('advancedControlsPanel').classList.toggle('hidden', tab !== 'advanced');
+      listeningForAction = null;
+      updateKeybindButtons();
+    });
+  });
 
   document.querySelectorAll('.diffBtn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      mode = 'ai';
+      mode = pendingAIMode; // 'ai' or 'aivai', depending on which main-menu button led here
       aiDifficulty = btn.getAttribute('data-diff');
       startCharacterSelect();
     });
   });
-  document.getElementById('restartBtn').addEventListener('click', restartGame);
+  document.getElementById('restartBtn').addEventListener('click', function(){
+    // Phase 9: for an online match, "Play Again" requests a rematch through
+    // the server instead of resetting local state directly — the server owns
+    // score/state, so restartGame()'s direct reset would be exactly the kind
+    // of client-trusted mutation the multiplayer spec forbids. See
+    // requestOnlineRematch() in the Phase 5/9 lobby IIFE above.
+    if(onlineMatch) requestOnlineRematch();
+    else restartGame();
+  });
 
   document.querySelectorAll('.themeSwatch').forEach(function(btn){
     btn.addEventListener('click', function(){
@@ -3334,16 +5736,16 @@
     updateTekkenAttributes();
     
     // Status labels
-    document.getElementById('p1StateLabel').textContent = p1Confirmed ? 'CONFIRMED' : (charStage === 'left' ? 'SELECTING' : 'PLAYER 1');
-    document.getElementById('p2StateLabel').textContent = p2Confirmed ? 'CONFIRMED' : (charStage === 'right' ? 'SELECTING' : (mode === 'ai' ? 'AI OPPONENT' : 'PLAYER 2'));
+    document.getElementById('p1StateLabel').textContent = p1Confirmed ? 'CONFIRMED' : (charStage === 'left' ? 'SELECTING' : (mode === 'aivai' ? 'AI PLAYER 1' : 'PLAYER 1'));
+    document.getElementById('p2StateLabel').textContent = p2Confirmed ? 'CONFIRMED' : (charStage === 'right' ? 'SELECTING' : (mode === 'ai' ? 'AI OPPONENT' : mode === 'aivai' ? 'AI PLAYER 2' : 'PLAYER 2'));
     
     // Update confirm button
     const confirmBtn = document.getElementById('tekkenConfirmBtn');
     if (charStage === 'left') {
-      confirmBtn.textContent = 'CONFIRM PLAYER 1';
+      confirmBtn.textContent = mode === 'aivai' ? 'CONFIRM AI 1' : 'CONFIRM PLAYER 1';
       confirmBtn.classList.remove('disabled');
     } else if (charStage === 'right') {
-      confirmBtn.textContent = mode === 'ai' ? 'CONFIRM AI OPPONENT' : 'CONFIRM PLAYER 2';
+      confirmBtn.textContent = mode === 'ai' ? 'CONFIRM AI OPPONENT' : mode === 'aivai' ? 'CONFIRM AI 2' : 'CONFIRM PLAYER 2';
       confirmBtn.classList.remove('disabled');
     } else {
       confirmBtn.textContent = 'ALL SELECTIONS CONFIRMED';
@@ -3357,8 +5759,8 @@
     grid.innerHTML = '';
     
     document.getElementById('charSelectTitle').textContent = which === 'left'
-      ? (mode === '2p' ? 'Player 1 — Choose Your Character' : 'Choose Your Character')
-      : (mode === '2p' ? 'Player 2 — Choose Your Character' : 'Choose AI Opponent');
+      ? (mode === '2p' ? 'Player 1 — Choose Your Character' : mode === 'aivai' ? 'Choose AI 1 (Left)' : 'Choose Your Character')
+      : (mode === '2p' ? 'Player 2 — Choose Your Character' : mode === 'aivai' ? 'Choose AI 2 (Right)' : 'Choose AI Opponent');
       
     // Create 8 character boxes
     CHARACTERS.forEach(function(ch){
@@ -3438,6 +5840,10 @@
     if(charStage === 'right'){
       p1Confirmed = false;
       buildCharGrid('left');
+    } else if(changingCharactersFromPause){
+      changingCharactersFromPause = false;
+      document.getElementById('charSelectOverlay').classList.add('hidden');
+      document.getElementById('pauseOverlay').classList.remove('hidden');
     } else {
       document.getElementById('charSelectOverlay').classList.add('hidden');
       document.getElementById('startOverlay').classList.remove('hidden');
@@ -3459,8 +5865,7 @@
     drawFansStand(c2, bg, 0, fansTop, w, fansBottom-fansTop);
 
     const topY = h*0.44, botY = h*0.92, inset = w*0.1;
-    c2.fillStyle = bg.ground;
-    c2.fillRect(inset, topY, w-inset*2, botY-topY);
+    drawBleacherFloor(c2, bg, inset, topY, w-inset*2, botY-topY, {rows:3});
     c2.strokeStyle = bg.line;
     c2.lineWidth = 1.2;
     c2.strokeRect(inset, topY, w-inset*2, botY-topY);
@@ -3751,6 +6156,28 @@
     return x;
   }
 
+  // Same forward simulation as predictShuttleLandingX, but answers a different question:
+  // how many seconds until the shuttle's height crosses targetY (descends down to/past
+  // that level)? This is what the AI's jump-smash timing runs on — it's the difference
+  // between "jump when the ball LOOKS close" (a same-frame reactive check, which is
+  // inherently either early or late relative to a fast, steep flight) and "jump when the
+  // ball WILL arrive in exactly as long as my own jump takes to rise" (a real prediction).
+  // Returns null if the shuttle lands before ever reaching that height.
+  function predictShuttleTimeToY(targetY){
+    let y = shuttle.y, vy = shuttle.vy;
+    if(y >= targetY) return 0; // already at/past that height right now
+    const g = currentShuttleGravity(), termVy = currentShuttleTerminalVy();
+    const dt = 1/120;
+    for(let i=1; i<=480; i++){
+      vy += g*dt;
+      if(vy > termVy) vy = termVy;
+      y += vy*dt;
+      if(y >= targetY) return i*dt;
+      if(y + SHUTTLE_RADIUS >= GROUND_Y) return null;
+    }
+    return null;
+  }
+
   function updateShuttle(dt){
     if(!shuttle.active) return;
 
@@ -3788,13 +6215,11 @@
     const maxLen = shuttle.kind === 'smash' ? TRAIL_LENGTH_SMASH : TRAIL_LENGTH;
     while(trail.length > maxLen) trail.shift();
 
-    // Net collision: a shuttle that clips the thin top TAPE plays a real "net cord" shot —
-    // it keeps drifting the same direction it was already headed, but at a small fixed
-    // creep speed with a light upward kick, so it just dribbles over and drops in close on
-    // the opponent's side. Anywhere lower — the body of the net — is a clean fault: the
-    // rally ends immediately and the point goes to whoever DIDN'T hit it into the net.
-    // netCollisionResolved guards this so it only ever resolves once per flight (the old
-    // per-frame vx-zeroing approach let the shuttle "stick" to the net for several frames).
+    // Net collision: a shuttle that clips the thin top TAPE plays a real "net cord" shot.
+    // The net absorbs significant energy (70%), but remaining momentum (30%) varies with
+    // incoming shot power: low-power shots drop close to the net, high-power shots travel
+    // farther into the opponent's court. Anywhere lower (net body) is a clean fault.
+    // netCollisionResolved guards this so it only ever resolves once per flight.
     const inNetX = shuttle.x + SHUTTLE_RADIUS >= NET_X - NET_WIDTH/2 &&
                    shuttle.x - SHUTTLE_RADIUS <= NET_X + NET_WIDTH/2;
     if(inNetX && !shuttle.netCollisionResolved && shuttle.y + SHUTTLE_RADIUS >= NET_TOP){
@@ -3803,10 +6228,27 @@
       playSound('net');
       if(hitTape){
         const dir = shuttle.vx >= 0 ? 1 : -1;
-        shuttle.vx = dir * NET_CORD_CREEP_SPEED;
+        
+        // Calculate incoming momentum magnitude (primarily horizontal for net clips)
+        const incomingSpeed = Math.abs(shuttle.vx);
+        
+        // The net absorbs most energy, leaving 30% to carry forward.
+        // This creates realistic variation: weak clips drop close, strong ones travel farther.
+        const retainedEnergy = incomingSpeed * NET_ENERGY_RETENTION;
+        
+        // Clamp the post-net speed to reasonable bounds to prevent extreme behavior
+        const postNetSpeed = Math.max(
+          NET_MIN_POST_SPEED,
+          Math.min(NET_MAX_POST_SPEED, retainedEnergy)
+        );
+        
+        // Apply the retained momentum in the original direction
+        shuttle.vx = dir * postNetSpeed;
         shuttle.vy = NET_CORD_BOUNCE_VY;
+        
         // nudge it just clear of the net's collision box so it can't immediately re-trigger
         shuttle.x = NET_X + dir * (NET_WIDTH/2 + SHUTTLE_RADIUS + 1);
+        
         // this shot's identity is now a soft dribble, not a smash/dink — resetting kind to
         // 'float' means neither the max-power dive nor the dink post-net dive can fire for
         // the rest of this flight, so it just falls under ordinary gravity (see gravity
@@ -3856,24 +6298,56 @@
     const nowSec = now/1000;
 
     if(!paused){
-      updateAI(dt, nowSec);
+      // Phase 9: once state is 'gameOver' the server has stopped ticking this
+      // room (Room.fixedStep no-ops outside PLAYING) and, if a rematch is
+      // requested, the room may briefly be sitting in LOBBY again while this
+      // client is still looking at the Waiting Room — neither case needs this
+      // client still predicting movement or spamming INPUT packets nobody is
+      // listening to, so hold off until beginOnlineMatch() sets state back to
+      // 'serve' for the next match.
+      if(onlineMatch && state !== 'gameOver'){
+        // Server owns score/shuttle physics/serves/state entirely — left/right/shuttle/
+        // state/servingSide/pointPauseTimer are all driven by the latest SNAPSHOT
+        // (applyOnlineSnapshot, called from the NetClient 'snapshot' event as packets
+        // arrive, independent of this render loop). The OPPONENT and the shuttle are
+        // smoothed every frame from the buffered snapshot history (Phase 7 — see
+        // updateOnlineInterpolation). OUR OWN player is predicted+reconciled instead
+        // (Phase 8): step input at a fixed cadence matching the server's own tick rate
+        // (decoupled from render fps) via this accumulator, then let the prediction
+        // (already kept current every tick, and re-baselined on each snapshot by
+        // reconcileLocalPrediction) win over whatever interpolation just wrote for us.
+        onlineMatch.inputAccumulator = Math.min(
+          onlineMatch.inputAccumulator + dt, ONLINE_PREDICTION_MAX_FRAME_SEC);
+        while(onlineMatch.inputAccumulator >= Protocol.TICK_DT){
+          onlineMatch.inputAccumulator -= Protocol.TICK_DT;
+          stepOnlinePrediction(Protocol.TICK_DT);
+        }
+        updateOnlineInterpolation();
+        applyLocalPrediction();
+      } else if(!onlineMatch){
+        updateAI(dt, nowSec);
 
-      if(state === 'rally' || state === 'serve'){
-        updatePlayer(left, dt, 'KeyA', 'KeyD');
-        updatePlayer(right, dt, 'ArrowLeft', 'ArrowRight');
-      }
-      if(state === 'serve'){
-        const server = servingSide === 'left' ? left : right;
-        const serveDir = servingSide === 'left' ? 1 : -1;
-        shuttle.x = server.x + PLAYER_W/2 + serveDir*10;
-        shuttle.y = server.y + PLAYER_H*0.52;
-      }
-      if(state === 'rally'){
-        updateShuttle(dt);
-      }
-      if(state === 'pointPause'){
-        pointPauseTimer -= dt;
-        if(pointPauseTimer <= 0) setupServe();
+        if(state === 'rally' || state === 'serve'){
+          updatePlayer(left, dt,
+            isHumanControlled(left)  ? keyBindings.p1Left  : AI_KEYMAP.left.moveLeft,
+            isHumanControlled(left)  ? keyBindings.p1Right : AI_KEYMAP.left.moveRight);
+          updatePlayer(right, dt,
+            isHumanControlled(right) ? keyBindings.p2Left  : AI_KEYMAP.right.moveLeft,
+            isHumanControlled(right) ? keyBindings.p2Right : AI_KEYMAP.right.moveRight);
+        }
+        if(state === 'serve'){
+          const server = servingSide === 'left' ? left : right;
+          const serveDir = servingSide === 'left' ? 1 : -1;
+          shuttle.x = server.x + PLAYER_W/2 + serveDir*10;
+          shuttle.y = server.y + PLAYER_H*0.52;
+        }
+        if(state === 'rally'){
+          updateShuttle(dt);
+        }
+        if(state === 'pointPause'){
+          pointPauseTimer -= dt;
+          if(pointPauseTimer <= 0) setupServe();
+        }
       }
       if(shakeTime > 0) shakeTime = Math.max(0, shakeTime - dt);
 
@@ -4410,7 +6884,7 @@
   function drawFansStand(c, bg, x, y, w, h){
     // stand panel, tinted from the court's own ground color so the bleacher reads as
     // built into this court rather than a generic gray bar dropped on top of it
-    c.fillStyle = lighten(bg.ground, 0.3);
+    c.fillStyle = lighten(bg.ground, 0.18);
     c.fillRect(x, y, w, h);
     c.strokeStyle = bg.line;
     c.lineWidth = 2;
@@ -4432,7 +6906,7 @@
     // reads at a glance as "people in the stand" without competing with the court itself.
     const spacing = 22;
     const rowYs = [y + h*0.4, y + h*0.78];
-    const tones = ['rgba(255,255,255,0.30)','rgba(255,255,255,0.20)','rgba(255,255,255,0.25)','rgba(255,255,255,0.16)'];
+    const tones = ['rgba(255,255,255,0.20)','rgba(255,255,255,0.13)','rgba(255,255,255,0.17)','rgba(255,255,255,0.10)'];
     
     // Dynamic cheering crowd bounce during scoring celebrations!
     let bounceY = 0;
@@ -4464,6 +6938,78 @@
         c.fill();
       }
     });
+  }
+
+  // like lighten(), but accepts negative amounts too so the same helper can push a
+  // theme's ground color either toward white (positive) or toward black (negative) —
+  // used to shade individual bleacher tread rows without needing per-theme darken data.
+  function shade(hex, amt){
+    const rgb = hexToRgb(hex);
+    const clamp = function(v){ return Math.max(0, Math.min(255, Math.round(v))); };
+    const mix = function(v){ return amt >= 0 ? v + (255-v)*amt : v + v*amt; };
+    return 'rgb(' + clamp(mix(rgb[0])) + ',' + clamp(mix(rgb[1])) + ',' + clamp(mix(rgb[2])) + ')';
+  }
+
+  // Renders the playing surface itself as a stepped stadium bleacher — tiered treads
+  // (shaded from the theme's own ground color, so it still reads as "this court" rather
+  // than a generic gray stand) with a sparse seated crowd resting on top. Boundary lines,
+  // service lines and the net are all drawn AFTER this by the caller, so gameplay markings
+  // stay crisp and legible on top of the tread pattern.
+  const BLEACHER_CROWD_TONES = ['rgba(255,255,255,0.36)','rgba(255,255,255,0.26)','rgba(255,255,255,0.20)','rgba(255,255,255,0.14)'];
+  function drawBleacherFloor(c, bg, x, y, w, h, opts){
+    opts = opts || {};
+    const rows = Math.max(2, opts.rows || 6);
+    const rowH = h / rows;
+    const bounceY = opts.bounce || 0;
+
+    for(let i=0; i<rows; i++){
+      const rowY = y + i*rowH;
+      const depth = i/(rows-1||1); // 0 = back row, 1 = front row (closer to camera)
+
+      // tread: each row a slightly different shade, lighter toward the back so the
+      // steps read as receding rather than as one flat block
+      c.fillStyle = shade(bg.ground, 0.08 - depth*0.18);
+      c.fillRect(x, rowY, w, rowH);
+
+      // front lip of the step, darkened, so each tread has a visible edge
+      c.strokeStyle = shade(bg.ground, -0.28);
+      c.lineWidth = Math.max(1, rowH*0.05);
+      c.beginPath();
+      c.moveTo(x, rowY+rowH-c.lineWidth/2);
+      c.lineTo(x+w, rowY+rowH-c.lineWidth/2);
+      c.stroke();
+
+      // faint seat-back ticks across the row
+      c.strokeStyle = 'rgba(0,0,0,0.08)';
+      c.lineWidth = 1;
+      const tickSpacing = Math.max(9, rowH*0.62);
+      for(let tx = x + tickSpacing/2; tx < x+w; tx += tickSpacing){
+        c.beginPath();
+        c.moveTo(tx, rowY + rowH*0.16);
+        c.lineTo(tx, rowY + rowH*0.86);
+        c.stroke();
+      }
+
+      // sparse seated crowd — deterministic gaps (not every seat filled) so it reads
+      // as a real audience rather than a solid painted band
+      const seatSpacing = Math.max(11, rowH*0.9);
+      const offset = (i % 2 === 0) ? 0 : seatSpacing/2;
+      const rowBounce = (i % 2 === 0) ? bounceY : bounceY*0.6;
+      let k = 0;
+      for(let sx = x + seatSpacing*0.5 + offset; sx < x+w-4; sx += seatSpacing){
+        k++;
+        if((Math.floor(sx)+i*7) % 5 === 0) continue; // empty seat
+        c.fillStyle = BLEACHER_CROWD_TONES[(k+i) % BLEACHER_CROWD_TONES.length];
+        const headR = Math.max(2, rowH*0.15);
+        const cy = rowY + rowH*0.44 - rowBounce;
+        c.beginPath();
+        c.arc(sx, cy, headR, 0, Math.PI*2);
+        c.fill();
+        c.beginPath();
+        c.ellipse(sx, cy+headR*1.7, headR*1.45, headR*1.2, 0, 0, Math.PI*2);
+        c.fill();
+      }
+    }
   }
 
   // Renders a clean, perfectly straight vertical line with a soft "painted-on" look — a
@@ -4514,24 +7060,43 @@
     ctx.fillStyle = bg.ground;
     ctx.fillRect(0, GROUND_Y, W, H-GROUND_Y);
 
-    // flat court floor — a plain rectangle, same width top to bottom
-    ctx.fillStyle = bg.ground;
-    ctx.fillRect(COURT_LEFT, COURT_TOP, COURT_RIGHT-COURT_LEFT, GROUND_Y-COURT_TOP);
+    // court floor — rendered as a tiered stadium bleacher (treads + seated crowd)
+    // instead of a flat color, so the playing surface itself reads as part of the
+    // stadium. Boundary/service lines/net are drawn afterward, on top, so they stay
+    // crisp and the rally is always easy to track.
+    let courtBounce = 0;
+    if(state === 'pointPause'){ courtBounce = Math.abs(Math.sin(performance.now() * 0.014)) * 3; }
+    drawBleacherFloor(ctx, bg, COURT_LEFT, COURT_TOP, COURT_RIGHT-COURT_LEFT, GROUND_Y-COURT_TOP, {rows:6, bounce:courtBounce});
 
-    // outer boundary (doubles line)
+    // outer boundary (doubles line) — top and bottom edges run the full width as
+    // before; the left/right sides are now short ticks that drop DOWN onto the grass
+    // apron where the players actually stand, instead of running up through the
+    // bleacher crowd above.
     ctx.strokeStyle = bg.line;
     ctx.lineWidth = 2;
-    ctx.strokeRect(COURT_LEFT, COURT_TOP, COURT_RIGHT-COURT_LEFT, GROUND_Y-COURT_TOP);
+    ctx.beginPath();
+    ctx.moveTo(COURT_LEFT, COURT_TOP); ctx.lineTo(COURT_RIGHT, COURT_TOP);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(COURT_LEFT, GROUND_Y); ctx.lineTo(COURT_RIGHT, GROUND_Y);
+    ctx.stroke();
+    const BOUNDARY_TICK_H = 34;
+    [COURT_LEFT, COURT_RIGHT].forEach(function(lx){
+      ctx.beginPath();
+      ctx.moveTo(lx, GROUND_Y); ctx.lineTo(lx, GROUND_Y + BOUNDARY_TICK_H);
+      ctx.stroke();
+    });
 
     // custom decor (if any)
     if(bg.decor) bg.decor(ctx, W, H, FANS_BOTTOM);
 
-    // service lines — drawn with a rough, hand-painted stroke (deliberately looser than
-    // the crisp printed boundary above) so they read as an added marking rather than
-    // part of the court's original print
+    // service lines — same ground-anchored treatment: a short painted tick sitting
+    // right at the ground the players stand on (where a real service line is actually
+    // painted) instead of a stroke running up through the bleacher rows.
     const paintColor = 'rgba(255,236,180,0.85)';
+    const SERVICE_TICK_H = 34;
     [SERVICE_SHORT_X_LEFT, SERVICE_SHORT_X_RIGHT, SERVICE_LONG_X_LEFT, SERVICE_LONG_X_RIGHT].forEach(function(lx){
-      drawPaintedLine(ctx, lx, COURT_TOP+2, GROUND_Y-2, paintColor);
+      drawPaintedLine(ctx, lx, GROUND_Y+2, GROUND_Y + SERVICE_TICK_H, paintColor);
     });
 
     // net — perfectly vertical, centered
@@ -4602,7 +7167,7 @@
       const arc = Math.sin(Math.min(1, Math.max(0,t)) * Math.PI);
       armFront = -0.3 + (-2.1 - (-0.3)) * arc * (p.swingPowerFrac || 1);
     } else if(p.charging){
-      const frac = Math.min(1, (nowSec - p.chargeStart) / MAX_CHARGE_TIME);
+      const frac = Math.min(1, (nowSec - p.chargeStart) / chargeTimeFor(p.character));
       armFront = -0.3 + (1.2 - (-0.3)) * frac;
     } else if(isServer){
       armFront = -1.0;
@@ -4629,7 +7194,7 @@
     drawAttackAngleIndicator(p);
 
     if(p.charging){
-      const frac = Math.min(1, (nowSec - p.chargeStart) / MAX_CHARGE_TIME);
+      const frac = Math.min(1, (nowSec - p.chargeStart) / chargeTimeFor(p.character));
       const gaugeW = PLAYER_W + 16;
       const gaugeX = p.x - 8;
       const gaugeY = p.y - 18;
@@ -4923,12 +7488,68 @@
   function updateServeTag(){
     const tag = document.getElementById('serveTag');
     if(state === 'serve'){
-      tag.textContent = (servingSide === 'left' ? 'Left' : 'Right') + ' to serve — press ' +
-        (servingSide === 'left' ? 'Space' : 'Enter');
+      const server = servingSide === 'left' ? left : right;
+      // don't tell the player to press a key when an AI is the one serving
+      tag.textContent = isHumanControlled(server)
+        ? (servingSide === 'left' ? 'Left' : 'Right') + ' to serve — press ' +
+          keyLabel(servingSide === 'left' ? keyBindings.p1Hit : keyBindings.p2Hit)
+        : (servingSide === 'left' ? 'Left' : 'Right') + ' AI to serve';
       tag.classList.remove('hidden');
     } else if(state === 'rally'){
       tag.classList.add('hidden');
     }
+  }
+
+  // ---------- AI debug overlay (F3) ----------
+  // Optional developer/validation view for the AI modes: per-AI decision state (current
+  // plan, movement target, charge), the character stats driving those decisions, the
+  // active difficulty, and rally-length stats for judging rally quality over time.
+  // Purely a read-only overlay — it never influences gameplay, and F3 toggles it off.
+  function drawAIDebug(){
+    if(!aiDebugEnabled) return;
+    if(mode !== 'ai' && mode !== 'aivai') return;
+    const sides = mode === 'aivai' ? ['left', 'right'] : ['right'];
+    ctx.save();
+    ctx.font = '500 11px "JetBrains Mono", monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    sides.forEach(function(side){
+      const p = side === 'left' ? left : right;
+      const c = aiControllers[side];
+      const ch = p.character;
+      const s = (ch && ch.stats) || {speed:'?', power:'?', control:'?'};
+      const lines = [
+        (ch ? ch.name : '—') + '  S' + s.speed + ' P' + s.power + ' C' + s.control,
+        'diff:   ' + aiDifficulty,
+        'state:  ' + c.stateLabel,
+        'plan:   ' + (c.plan ? c.plan.type : '—'),
+        'target: ' + Math.round(c.targetX),
+        'charge: ' + (p.charging
+          ? Math.round(100 * Math.min(1, (performance.now()/1000 - p.chargeStart) / chargeTimeFor(ch))) + '%'
+          : '—')
+      ];
+      const panelW = 170, lineH = 15;
+      const px = side === 'left' ? 14 : W - panelW - 14;
+      const py = 96;
+      ctx.fillStyle = 'rgba(6, 9, 19, 0.62)';
+      ctx.fillRect(px - 8, py - 16, panelW + 16, lines.length*lineH + 14);
+      ctx.fillStyle = side === 'left' ? '#8db8ff' : '#ff9ecf';
+      lines.forEach(function(t, i){ ctx.fillText(t, px, py + i*lineH); });
+      // movement-target marker: where this AI is currently trying to stand
+      ctx.strokeStyle = side === 'left' ? 'rgba(141,184,255,0.75)' : 'rgba(255,158,207,0.75)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(c.targetX, GROUND_Y - 80);
+      ctx.lineTo(c.targetX, GROUND_Y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    // rally-quality stats, centered under the score
+    const avg = ralliesPlayed > 0 ? (rallyHitsTotal / ralliesPlayed).toFixed(1) : '—';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(248, 250, 252, 0.85)';
+    ctx.fillText('rally ' + rallyHitCount + ' · last ' + lastRallyLength + ' · avg ' + avg, W/2, 96);
+    ctx.restore();
   }
 
   function draw(){
@@ -4943,14 +7564,16 @@
     drawPlayer(left);
     drawPlayer(right);
     if(shuttle.active || state==='serve') { drawTrail(); drawShuttle(); }
-    
+
     // Draw particles inside world space
     drawParticles();
-    
+
     drawScore();
     drawPointMessage();
+    drawAIDebug();
     ctx.restore();
     updateServeTag();
+    updateTouchControlsVisibility();
   }
 
   draw();
